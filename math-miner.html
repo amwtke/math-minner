@@ -1,0 +1,886 @@
+<!-- 方块数学矿工 Math Miner -->
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+SC:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root{
+    --pix:'Press Start 2P', monospace;
+    --cn:'Noto Sans SC', sans-serif;
+    --grass:#5fa92e; --grass-d:#3d7a1e; --dirt:#8a5a2b; --dirt-d:#6b4321;
+    --stone:#8a8a8a; --stone-d:#5e5e5e; --bg:#1d2733; --bg2:#141b24;
+    --gold:#f7c948; --red:#e04a3a; --cyan:#43d6c4; --pur:#9a5cf0;
+  }
+  html,body{height:100%;}
+  body{
+    font-family:var(--cn);
+    background:
+      repeating-linear-gradient(0deg,transparent,transparent 38px,rgba(0,0,0,.12) 38px,rgba(0,0,0,.12) 40px),
+      repeating-linear-gradient(90deg,transparent,transparent 38px,rgba(0,0,0,.12) 38px,rgba(0,0,0,.12) 40px),
+      linear-gradient(180deg,#2a3a4d,#141b24);
+    color:#eaf2f7; min-height:100vh; display:flex; align-items:flex-start; justify-content:center;
+    padding:10px; overflow-x:hidden;
+  }
+  #app{width:100%; max-width:520px; position:relative;}
+  .pix{font-family:var(--pix);}
+  .screen{display:none; animation:fade .25s ease;}
+  .screen.on{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  .btn{
+    font-family:var(--cn); font-weight:700; font-size:15px; color:#1d2733;
+    background:var(--gold); border:none; cursor:pointer; padding:12px 14px;
+    border-radius:4px; box-shadow:inset -4px -4px 0 rgba(0,0,0,.28), inset 4px 4px 0 rgba(255,255,255,.4);
+    transition:transform .05s; user-select:none;
+  }
+  .btn:active{transform:translateY(3px); box-shadow:inset -4px -4px 0 rgba(0,0,0,.28);}
+  .btn.green{background:var(--grass);color:#fff;}
+  .btn.gray{background:var(--stone);color:#fff;}
+  .btn.cyan{background:var(--cyan);color:#0c2a26;}
+  .btn:disabled{filter:grayscale(.7) brightness(.7); cursor:not-allowed;}
+
+  /* TITLE */
+  #title{text-align:center; padding-top:18px;}
+  .logo{font-family:var(--pix); line-height:1.5; font-size:26px; color:var(--grass);
+    text-shadow:3px 3px 0 #244d12, 6px 6px 0 rgba(0,0,0,.35); margin:6px 0 4px;}
+  .logo small{display:block;font-size:13px;color:var(--gold);margin-top:10px;text-shadow:2px 2px 0 #6b4321;}
+  .subtitle{font-size:14px;color:#bcd;margin:14px 0 22px;}
+  .avatarBox{display:inline-block; margin:10px auto 18px;}
+
+  .face{display:grid; grid-template-columns:repeat(8,1fr); width:112px; height:112px; margin:0 auto;
+    image-rendering:pixelated; box-shadow:0 8px 0 rgba(0,0,0,.25);}
+  .face.sm{width:48px;height:48px;box-shadow:0 4px 0 rgba(0,0,0,.25);}
+  .face .px{width:100%;height:100%;}
+  .body{width:64px;height:34px;margin:0 auto;border-radius:3px;
+    box-shadow:inset -4px -4px 0 rgba(0,0,0,.3),inset 4px 4px 0 rgba(255,255,255,.25);}
+
+  /* WORLD SELECT */
+  .worlds{display:grid;gap:12px;margin-top:18px;}
+  .world{display:flex;align-items:center;gap:12px;padding:12px;border-radius:6px;cursor:pointer;
+    box-shadow:inset -5px -5px 0 rgba(0,0,0,.3),inset 5px 5px 0 rgba(255,255,255,.18);position:relative;}
+  .world .wicon{width:42px;height:42px;border-radius:4px;flex:none;
+    box-shadow:inset -3px -3px 0 rgba(0,0,0,.35);}
+  .world h3{font-size:16px;margin-bottom:3px;}
+  .world p{font-size:12px;color:rgba(255,255,255,.85);}
+  .world:active{transform:translateY(3px);}
+
+  /* HUD */
+  .hud{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    background:var(--bg2);border-radius:6px;padding:8px 10px;margin-bottom:10px;
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.06);}
+  .hud .grp{display:flex;align-items:center;gap:4px;font-family:var(--pix);font-size:12px;}
+  .hearts{letter-spacing:2px;font-size:16px;}
+  .heart{color:var(--red);} .heart.off{color:#4a4f57;}
+  .stars{color:var(--gold);}
+  .combo{color:var(--cyan);font-size:11px;}
+  .res{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--bg2);
+    border-radius:6px;padding:7px 10px;margin-bottom:10px;font-size:13px;}
+  .resItem{display:flex;align-items:center;gap:4px;font-family:var(--pix);font-size:11px;}
+  .ore{width:16px;height:16px;border-radius:2px;box-shadow:inset -2px -2px 0 rgba(0,0,0,.35);}
+  .ore.wood{background:var(--dirt);} .ore.stone{background:var(--stone);}
+  .ore.iron{background:#d8b894;} .ore.diamond{background:var(--cyan);}
+
+  .worldName{text-align:center;font-family:var(--pix);font-size:12px;color:var(--gold);margin-bottom:8px;}
+
+  /* BOARD */
+  .board{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;}
+  .tile{
+    aspect-ratio:1/1;border:none;cursor:pointer;border-radius:5px;position:relative;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-family:var(--pix);color:#fff;text-shadow:2px 2px 0 rgba(0,0,0,.45);
+    box-shadow:inset -5px -5px 0 rgba(0,0,0,.32),inset 5px 5px 0 rgba(255,255,255,.22);
+    transition:transform .08s;user-select:none;overflow:hidden;
+  }
+  .tile.q{background:linear-gradient(180deg,var(--grass) 0 32%,var(--dirt) 32%);}
+  .tile.a{background:var(--stone);}
+  .tile .val{font-size:17px;}
+  .tile.sel{outline:4px solid var(--gold);outline-offset:-4px;transform:scale(1.04);}
+  .tile.wrong{animation:shake .3s; outline:4px solid var(--red);outline-offset:-4px;}
+  .tile.gone{visibility:hidden;}
+  .tile:active{transform:scale(.96);}
+  .tag{position:absolute;top:3px;left:4px;font-size:7px;opacity:.85;}
+  .dots{display:flex;flex-wrap:wrap;gap:2px;justify-content:center;max-width:80%;margin-top:5px;}
+  .dot{width:7px;height:7px;background:#fff;border-radius:50%;opacity:.85;}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+  @keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.25)}100%{transform:scale(0)}}
+  .tile.match{animation:pop .35s forwards;}
+
+  /* SKILL BAR */
+  .skillBar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px;}
+  .skillBtn{flex:1;min-width:72px;max-width:130px;background:var(--bg2);border:none;cursor:pointer;border-radius:7px;
+    padding:8px 6px;color:#fff;display:flex;flex-direction:column;align-items:center;gap:3px;
+    box-shadow:inset -3px -3px 0 rgba(0,0,0,.3),inset 3px 3px 0 rgba(255,255,255,.1);transition:transform .05s;}
+  .skillBtn .sIcon{font-size:22px;}
+  .skillBtn .sName{font-size:11px;font-weight:700;}
+  .skillBtn .sUse{font-size:10px;color:var(--cyan);font-family:var(--pix);}
+  .skillBtn:active{transform:translateY(2px);}
+  .skillBtn:disabled{filter:grayscale(.85) brightness(.55);cursor:not-allowed;}
+  .skillBtn.active{box-shadow:inset 0 0 0 3px var(--gold);}
+  .skillHint{font-size:11px;color:#8fa6b5;text-align:center;width:100%;margin:6px 0 0;}
+
+  .controls{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px;}
+  .controls .btn{font-size:13px;padding:11px 4px;}
+
+  /* OVERLAY */
+  .overlay{position:fixed;inset:0;background:rgba(8,12,18,.82);display:none;
+    align-items:center;justify-content:center;z-index:50;padding:16px;animation:fade .2s;}
+  .overlay.on{display:flex;}
+  .panel{background:var(--bg);border-radius:10px;padding:20px;width:100%;max-width:460px;
+    box-shadow:inset 0 0 0 3px rgba(255,255,255,.08),0 12px 0 rgba(0,0,0,.4);max-height:90vh;overflow:auto;}
+  .panel h2{font-family:var(--pix);font-size:16px;color:var(--gold);text-align:center;margin-bottom:14px;line-height:1.5;}
+  .panel h2.win{color:var(--grass);} .panel h2.lose{color:var(--red);}
+  .closeRow{display:flex;justify-content:center;margin-top:16px;gap:10px;}
+
+  .toolRow{display:flex;align-items:center;gap:10px;background:var(--bg2);border-radius:6px;padding:12px;margin-bottom:10px;}
+  .toolPic{width:46px;height:46px;flex:none;display:flex;align-items:center;justify-content:center;font-size:30px;
+    background:rgba(255,255,255,.06);border-radius:5px;}
+  .toolRow h4{font-size:14px;margin-bottom:3px;}
+  .toolRow p{font-size:12px;color:#9fb3c2;}
+  .fuseBtn{margin-left:auto;flex:none;}
+  .cost{font-size:11px;color:var(--gold);margin-top:3px;}
+
+  .skinGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .skinCard{background:var(--bg2);border-radius:8px;padding:12px 6px;text-align:center;cursor:pointer;
+    box-shadow:inset 0 0 0 2px transparent;}
+  .skinCard.equipped{box-shadow:inset 0 0 0 3px var(--gold);}
+  .skinCard h5{font-size:12px;margin:8px 0 4px;}
+  .skinCard .price{font-size:11px;color:var(--cyan);}
+  .skinCard .owned{font-size:11px;color:var(--grass);}
+
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--bg2);
+    color:#fff;padding:10px 16px;border-radius:6px;font-size:13px;z-index:80;opacity:0;
+    box-shadow:0 6px 0 rgba(0,0,0,.4),inset 0 0 0 2px rgba(255,255,255,.1);transition:opacity .25s, transform .25s;pointer-events:none;}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(-6px);}
+
+  .flash{position:fixed;inset:0;background:radial-gradient(circle,rgba(67,214,196,.55),transparent 70%);z-index:60;pointer-events:none;opacity:0;}
+  .flash.on{animation:flashAnim .6s;}
+  @keyframes flashAnim{0%{opacity:0}25%{opacity:1}100%{opacity:0}}
+
+  .tip{font-size:12px;color:#8fa6b5;text-align:center;margin-top:10px;line-height:1.6;}
+</style>
+
+<div id="app">
+  <!-- TITLE -->
+  <section id="title" class="screen on">
+    <div class="logo pix">方块<br>数学矿工<small>MATH MINER</small></div>
+    <div class="avatarBox" id="titleAvatar"></div>
+    <div class="subtitle">⛏️ 挖方块 · 学加减 · 造神镐 · 放技能</div>
+    <button class="btn green pix" style="font-size:16px;padding:16px 28px" onclick="G.goModes()">开 始 游 戏 ▶</button>
+    <p class="tip">点「题目方块」再点「答案方块」<br>配对成功就把方块挖掉！</p>
+  </section>
+
+<style>
+  .crushGrid{display:grid;gap:6px;margin-top:6px;}
+  .cnum{aspect-ratio:1/1;border:none;cursor:pointer;border-radius:5px;position:relative;
+    font-family:var(--pix);font-size:17px;color:#fff;text-shadow:2px 2px 0 rgba(0,0,0,.5);
+    box-shadow:inset -4px -4px 0 rgba(0,0,0,.32),inset 4px 4px 0 rgba(255,255,255,.22);
+    display:flex;align-items:center;justify-content:center;transition:transform .08s;}
+  .cnum:active{transform:scale(.94);}
+  .cnum.csel{outline:4px solid var(--gold);outline-offset:-4px;transform:scale(1.06);z-index:2;}
+  .cnum.cwrong{outline:4px solid var(--red);outline-offset:-4px;animation:shake .3s;}
+  .cnum.chint{outline:4px solid var(--cyan);outline-offset:-4px;animation:pulse .5s infinite alternate;}
+  @keyframes pulse{from{transform:scale(1)}to{transform:scale(1.08)}}
+  .cnum .order{position:absolute;top:2px;right:4px;font-size:9px;color:#fff;background:rgba(0,0,0,.45);
+    border-radius:3px;padding:0 2px;}
+</style>
+
+  <!-- MODE SELECT -->
+  <section id="modes" class="screen">
+    <div class="logo pix" style="font-size:20px">选择玩法</div>
+    <div style="display:grid;gap:14px;margin-top:22px">
+      <div class="world" style="background:linear-gradient(135deg,var(--grass),rgba(0,0,0,.25))" onclick="G.goWorlds()">
+        <div class="wicon" style="background:var(--grass)"></div>
+        <div><h3>⛏️ 配对挖矿</h3><p>题目配答案，挖方块学加减</p></div>
+      </div>
+      <div class="world" style="background:linear-gradient(135deg,var(--cyan),rgba(0,0,0,.25))" onclick="M.start()">
+        <div class="wicon" style="background:var(--cyan)"></div>
+        <div><h3>💥 数字消消乐</h3><p>连成一串凑出目标数字，越凑越爽</p></div>
+      </div>
+    </div>
+    <p class="tip" style="margin-top:20px">矿石、镐子、皮肤两种玩法共享 · 进度自动存档</p>
+    <div style="text-align:center;margin-top:12px">
+      <button class="btn gray" style="font-size:12px;padding:8px 16px" onclick="if(confirm('确定清空所有存档进度吗？')) resetSave()">🗑️ 清空进度</button>
+    </div>
+  </section>
+
+  <!-- CRUSH (消消乐) -->
+  <section id="crush" class="screen">
+    <div class="hud">
+      <div class="grp hearts" id="cHearts"></div>
+      <div class="grp" style="color:var(--grass);font-size:11px">完成 <span id="cProg">0/0</span></div>
+      <div class="grp stars">★ <span id="cScore">0</span></div>
+      <div id="cFace"></div>
+    </div>
+    <div class="res" style="justify-content:center">
+      <div style="font-size:14px">🎯 凑出 <b class="pix" style="color:var(--gold);font-size:18px" id="cTarget">10</b>
+        ·  已选 <b class="pix" id="cSum" style="font-size:18px;color:var(--cyan)">0</b></div>
+    </div>
+    <div class="crushGrid" id="crushGrid"></div>
+    <div class="skillBar">
+      <button class="skillBtn" id="cHintBtn" onclick="M.hint()"><span class="sIcon">💡</span><span class="sName">提示</span><span class="sUse" id="cHintU">×0</span></button>
+      <button class="skillBtn" id="cShufBtn" onclick="M.reshuffle(false)"><span class="sIcon">🔀</span><span class="sName">洗牌</span><span class="sUse" id="cShufU">×0</span></button>
+      <button class="skillBtn" onclick="M.resetSel()"><span class="sIcon">↩️</span><span class="sName">重选</span><span class="sUse">&nbsp;</span></button>
+    </div>
+    <div class="controls">
+      <button class="btn gray" onclick="G.goModes()">🏠 玩法</button>
+      <button class="btn cyan" onclick="G.openCraft()">🔨 融合</button>
+      <button class="btn gray" onclick="G.openSkin()">🎨 皮肤</button>
+    </div>
+  </section>
+
+  <!-- WORLD SELECT -->
+  <section id="worlds" class="screen">
+    <div class="logo pix" style="font-size:18px">选择世界</div>
+    <div class="res" id="resBarW"></div>
+    <div class="worlds" id="worldList"></div>
+    <div class="controls" style="grid-template-columns:1fr 1fr;margin-top:16px">
+      <button class="btn cyan" onclick="G.openCraft()">🔨 工具融合</button>
+      <button class="btn gray" onclick="G.openSkin()">🎨 皮肤装扮</button>
+    </div>
+  </section>
+
+  <!-- GAME -->
+  <section id="game" class="screen">
+    <div class="hud">
+      <div class="grp hearts" id="hudHearts"></div>
+      <div class="grp stars" id="hudStars"></div>
+      <div class="grp combo" id="hudCombo"></div>
+      <div id="hudFace"></div>
+    </div>
+    <div class="res" id="resBar"></div>
+    <div class="worldName pix" id="worldName"></div>
+    <div class="board" id="board"></div>
+    <div class="skillBar" id="skillBar"></div>
+    <div class="controls">
+      <button class="btn gray" onclick="G.goWorlds()">🏠 地图</button>
+      <button class="btn cyan" onclick="G.openCraft()">🔨 融合</button>
+      <button class="btn gray" onclick="G.openSkin()">🎨 皮肤</button>
+    </div>
+  </section>
+</div>
+
+<!-- CRAFT OVERLAY -->
+<div class="overlay" id="craftOv">
+  <div class="panel">
+    <h2>🔨 工具融合台</h2>
+    <p class="tip" style="margin-top:0;margin-bottom:14px">融合矿石升级镐子，每级解锁一个新技能！</p>
+    <div id="craftBody"></div>
+    <div class="closeRow"><button class="btn gray" onclick="G.close('craftOv')">返回</button></div>
+  </div>
+</div>
+
+<!-- SKIN OVERLAY -->
+<div class="overlay" id="skinOv">
+  <div class="panel">
+    <h2>🎨 皮肤装扮</h2>
+    <div class="skinGrid" id="skinBody"></div>
+    <div class="closeRow"><button class="btn gray" onclick="G.close('skinOv')">返回</button></div>
+  </div>
+</div>
+
+<!-- LEVEL COMPLETE -->
+<div class="overlay" id="winOv">
+  <div class="panel" style="text-align:center">
+    <h2 class="win pix">🎉 通关啦！</h2>
+    <div id="winBody"></div>
+    <div class="closeRow">
+      <button class="btn green" onclick="G.nextLevel()">再来一关 ▶</button>
+      <button class="btn gray" onclick="G.close('winOv');G.goWorlds()">地图</button>
+    </div>
+  </div>
+</div>
+
+<!-- GAME OVER -->
+<div class="overlay" id="loseOv">
+  <div class="panel" style="text-align:center">
+    <h2 class="lose pix">💥 血量耗尽</h2>
+    <p class="tip" style="margin-top:0">别灰心，矿石和工具都还在！</p>
+    <div class="closeRow">
+      <button class="btn green" onclick="G.retry()">重 试 🔄</button>
+      <button class="btn gray" onclick="G.close('loseOv');G.goWorlds()">地图</button>
+    </div>
+  </div>
+</div>
+
+<!-- CRUSH WIN -->
+<div class="overlay" id="crushWin"><div class="panel" style="text-align:center">
+  <h2 class="win pix">🎉 过关！</h2><div id="cwBody"></div>
+  <div class="closeRow">
+    <button class="btn green" onclick="G.close('crushWin');M.startLevel();">再来一关 ▶</button>
+    <button class="btn gray" onclick="G.close('crushWin');G.goModes()">玩法</button>
+  </div></div></div>
+
+<!-- CRUSH LOSE -->
+<div class="overlay" id="crushLose"><div class="panel" style="text-align:center">
+  <h2 class="lose pix">💥 心碎光了</h2>
+  <p class="tip" style="margin-top:0">凑数时小心别超过目标哦，矿石都还在！</p>
+  <div class="closeRow">
+    <button class="btn green" onclick="G.close('crushLose');M.startLevel();">重 试 🔄</button>
+    <button class="btn gray" onclick="G.close('crushLose');G.goModes()">玩法</button>
+  </div></div></div>
+
+<div class="toast" id="toast"></div>
+<div class="flash" id="flash"></div>
+
+<script>
+/* ===================== DATA ===================== */
+const SKINS = {
+  steve:{name:'史蒂夫',body:'#1aa3a3',cost:0,
+    f:["hhhhhhhh","hhhhhhhh","hsssssssh","ssssssss","swbssbws","ssssssss","sshhhhss","ssssssss"]},
+  creeper:{name:'苦力怕',body:'#4a8c3a',cost:{stone:6},
+    f:["gggggggg","gggggggg","gkkggkkg","gkkggkkg","gggkkggg","ggkkkkgg","ggkkkkgg","ggkggkgg"]},
+  zombie:{name:'僵尸',body:'#3a6e8c',cost:{iron:10},
+    f:["zzzzzzzz","zzzzzzzz","zkzzzzkz","zzzzzzzz","zzzzzzzz","zzkkkkzz","zkzzzzkz","zzzzzzzz"]},
+  ender:{name:'末影人',body:'#221a33',cost:{diamond:4},
+    f:["pppppppp","pppppppp","pppppppp","pmmppmmp","pppppppp","pppppppp","pppppppp","pppppppp"]},
+  gold:{name:'黄金骑士',body:'#caa030',cost:{diamond:8},
+    f:["yyyyyyyy","yyyyyyyy","yssssssy","yssssssy","ysksskssy".slice(0,8),"yssssssy","ysskkssy","yyyyyyyy"]},
+};
+const COL = {h:'#5a3a1e',s:'#e0ac69',w:'#ffffff',b:'#2e6db5',g:'#5fb04a',G:'#3a7a2c',
+  k:'#1a1a1a',z:'#5a8a3c',p:'#181826',m:'#c44ff0',y:'#f2c14e',n:'#3a2412',' ':'transparent',0:'transparent'};
+
+const WORLDS = [
+  {id:1,name:'草原 GRASSLAND',icon:'var(--grass)',desc:'加法 · 越闯越难',op:'add',min:1,max:10,step:4,cap:30,pairs:5},
+  {id:2,name:'洞穴 CAVE',icon:'var(--stone)',desc:'加法 · 数字渐大',op:'add',min:5,max:20,step:6,cap:60,pairs:5},
+  {id:3,name:'矿井 MINESHAFT',icon:'var(--dirt)',desc:'减法 · 通往两位数',op:'sub',min:10,max:20,step:8,cap:99,pairs:6},
+  {id:4,name:'钻石层 DIAMOND',icon:'var(--cyan)',desc:'两位数加减混合',op:'mix',min:10,max:30,step:12,cap:99,pairs:6},
+];
+function diffFor(world, stage){
+  const w=WORLDS[world-1];
+  const maxN = Math.min(w.max + stage*w.step, w.cap);
+  const pairs = Math.min(w.pairs + Math.floor(stage/2), 8);
+  const dots = w.op==='add' && maxN<=20;
+  const span = (w.cap - w.max) || 1;
+  const dl = Math.max(0, Math.min(4, Math.round((maxN - w.max)/span*4)));
+  return {maxN, minN:w.min, pairs, dots, op:w.op, dl};
+}
+
+const TOOLS = [
+  {tier:0,name:'徒手',icon:'✊',bonus:'没有加成'},
+  {tier:1,name:'木镐',icon:'⛏️',bonus:'每次匹配 ⭐×2 · 解锁 💡提示',cost:{wood:3}},
+  {tier:2,name:'石镐',icon:'⛏️',bonus:'开局多 1 颗 ❤ · 解锁 🛡️护盾',cost:{stone:4}},
+  {tier:3,name:'铁镐',icon:'⛏️',bonus:'矿石更好 · 解锁 ⚒️精准敲击',cost:{iron:4}},
+  {tier:4,name:'钻石镐',icon:'⛏️',bonus:'矿石翻倍+多1❤ · 解锁 💎钻石风暴',cost:{diamond:3}},
+];
+
+// 技能：tier <= 当前镐子等级即解锁
+const SKILLS = [
+  {key:'hint',  tier:1, name:'提示',     icon:'💡', uses:3, desc:'高亮一对正确方块'},
+  {key:'shield',tier:2, name:'护盾',     icon:'🛡️', uses:2, desc:'下次答错不扣血'},
+  {key:'smash', tier:3, name:'精准敲击', icon:'⚒️', uses:2, desc:'自动消除一对方块'},
+  {key:'storm', tier:4, name:'钻石风暴', icon:'💎', uses:1, desc:'清半场+掉钻石'},
+];
+
+/* ===================== STATE ===================== */
+let S;
+function freshState(){
+  return { res:{wood:0,stone:0,iron:0,diamond:0}, tool:0,
+    skinsOwned:['steve'], skin:'steve',
+    world:1, hearts:5, maxHearts:5, stars:0, combo:0,
+    stage:{1:0,2:0,3:0,4:0}, curStage:0, diff:null, totalCleared:0, crushStage:0,
+    board:[], sel:null, skillUses:{}, shield:false, busy:false };
+}
+
+/* ===================== HELPERS ===================== */
+const $ = id => document.getElementById(id);
+function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on')); $(id).classList.add('on'); }
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'),1500); }
+function beep(type){
+  try{ const a=new (window.AudioContext||window.webkitAudioContext)(); const o=a.createOscillator(),g=a.createGain();
+    o.connect(g);g.connect(a.destination); o.type='square';
+    o.frequency.value = type==='good'?660 : type==='bad'?150 : 880;
+    g.gain.setValueAtTime(.08,a.currentTime); g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.18);
+    o.start(); o.stop(a.currentTime+.18);
+  }catch(e){}
+}
+function avatarHTML(skinId,small){
+  const sk=SKINS[skinId]; let cells='';
+  sk.f.forEach(row=>{ for(const ch of row.padEnd(8,' ').slice(0,8)){ cells+=`<div class="px" style="background:${COL[ch]||'transparent'}"></div>`; } });
+  return `<div class="face ${small?'sm':''}">${cells}</div>${small?'':`<div class="body" style="background:${sk.body};margin-top:4px"></div>`}`;
+}
+
+/* ===================== SAVE / LOAD ===================== */
+const SAVE_KEY='mathminer_save_v1';
+function saveGame(){
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify({
+    res:S.res, tool:S.tool, skinsOwned:S.skinsOwned, skin:S.skin,
+    stage:S.stage, crushStage:S.crushStage, stars:S.stars, totalCleared:S.totalCleared
+  })); }catch(e){}
+}
+function loadGame(){
+  try{ const raw=localStorage.getItem(SAVE_KEY); if(!raw) return;
+    const d=JSON.parse(raw);
+    ['res','tool','skinsOwned','skin','stage','crushStage','stars','totalCleared']
+      .forEach(k=>{ if(d[k]!==undefined && d[k]!==null) S[k]=d[k]; });
+  }catch(e){}
+}
+function resetSave(){
+  try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
+  S=freshState(); $('titleAvatar').innerHTML=avatarHTML('steve',false);
+  toast('进度已清空，重新开始啦'); show('title');
+}
+// 每 1.5 秒自动存档（artifact 沙箱里会被忽略，本地运行/托管后正常生效）
+setInterval(()=>{ if(typeof S!=='undefined' && S) saveGame(); }, 1500);
+
+/* ===================== GAME ===================== */
+const G = {
+  start(){ S = freshState(); loadGame(); $('titleAvatar').innerHTML = avatarHTML(S.skin,false); show('title'); },
+
+  goWorlds(){ this.renderWorlds(); show('worlds'); },
+  renderWorlds(){
+    this.renderRes('resBarW');
+    $('worldList').innerHTML = WORLDS.map(w=>{
+      const st=S.stage[w.id]; const d=diffFor(w.id,st);
+      const bar = '●'.repeat(d.dl+1)+'○'.repeat(4-d.dl);
+      return `
+      <div class="world" style="background:linear-gradient(135deg,${w.icon},rgba(0,0,0,.25))" onclick="G.startWorld(${w.id})">
+        <div class="wicon" style="background:${w.icon}"></div>
+        <div style="flex:1">
+          <h3>${w.id}. ${w.name.split(' ')[0]} <span style="font-size:12px;color:var(--gold)">第${st+1}关</span></h3>
+          <p>${w.desc} · 难度 ${bar}</p>
+        </div>
+      </div>`;
+    }).join('');
+  },
+
+  startWorld(id){
+    S.world=id;
+    S.curStage = S.stage[id];
+    S.diff = diffFor(id, S.curStage);
+    S.maxHearts = S.tool>=2 ? 6 : 5;
+    if(S.tool>=4) S.maxHearts=7;
+    S.hearts = S.maxHearts;
+    S.skillUses = {}; S.shield=false;
+    SKILLS.forEach(s=>{ if(S.tool>=s.tier) S.skillUses[s.key]=s.uses; });
+    this.buildBoard();
+    show('game');
+  },
+
+  buildBoard(){
+    const d = S.diff;
+    const used = new Set(); const pairs=[];
+    let guard=0;
+    while(pairs.length < d.pairs && guard++ < 1500){
+      let a,b,op,ans,txt;
+      const useSub = d.op==='sub' || (d.op==='mix' && Math.random()<0.5);
+      if(useSub){
+        a = rand(Math.ceil(d.maxN/2), d.maxN); b = rand(1, a-1>0?a-1:1); ans=a-b; op='−';
+      }else{
+        a = rand(d.minN, d.maxN); b = rand(d.minN, d.maxN); ans=a+b; op='+';
+      }
+      txt = `${a} ${op} ${b}`;
+      if(ans<0 || used.has(ans)) continue;
+      used.add(ans); pairs.push({txt,ans});
+    }
+    let tiles=[];
+    pairs.forEach((p,i)=>{
+      tiles.push({k:'q',pid:i,txt:p.txt,done:false});
+      tiles.push({k:'a',pid:i,ans:p.ans,done:false});
+    });
+    shuffle(tiles);
+    S.board = tiles; S.sel=null; S.busy=false;
+    this.renderHUD(); this.renderBoard(); this.renderSkills();
+    const w=WORLDS[S.world-1]; const bar='●'.repeat(S.diff.dl+1)+'○'.repeat(4-S.diff.dl);
+    $('worldName').innerHTML = `${w.name} · 第${S.curStage+1}关 · 难度 ${bar}`;
+  },
+
+  renderBoard(){
+    const dots = S.diff && S.diff.dots;
+    $('board').innerHTML = S.board.map((t,i)=>{
+      if(t.done) return `<div class="tile gone"></div>`;
+      if(t.k==='q'){
+        return `<button class="tile q ${S.sel===i?'sel':''}" data-i="${i}">
+          <span class="tag pix">题目</span><span class="val">${t.txt}</span></button>`;
+      }else{
+        let d='';
+        if(dots){ let dd=''; for(let n=0;n<Math.min(t.ans,20);n++) dd+=`<span class="dot"></span>`; d=`<div class="dots">${dd}</div>`; }
+        return `<button class="tile a ${S.sel===i?'sel':''}" data-i="${i}">
+          <span class="tag pix">答案</span><span class="val">${t.ans}</span>${d}</button>`;
+      }
+    }).join('');
+    $('board').querySelectorAll('.tile[data-i]').forEach(el=>{ el.onclick = ()=>G.tap(parseInt(el.dataset.i)); });
+  },
+
+  renderSkills(){
+    const bar=$('skillBar');
+    const avail=SKILLS.filter(s=>S.tool>=s.tier);
+    if(!avail.length){ bar.innerHTML=`<p class="skillHint">🔨 去「融合」升级镐子，解锁主动技能！</p>`; return; }
+    bar.innerHTML = avail.map(s=>{
+      const u=S.skillUses[s.key]||0;
+      const act = s.key==='shield' && S.shield;
+      const dis = (u<=0 && !act) ? 'disabled':'';
+      return `<button class="skillBtn ${act?'active':''}" ${dis} data-sk="${s.key}" title="${s.desc}">
+        <span class="sIcon">${s.icon}</span><span class="sName">${s.name}</span>
+        <span class="sUse">${act?'开启':'×'+u}</span></button>`;
+    }).join('');
+    bar.querySelectorAll('.skillBtn[data-sk]').forEach(el=>{ el.onclick=()=>G.useSkill(el.dataset.sk); });
+  },
+
+  renderHUD(){
+    let h=''; for(let i=0;i<S.maxHearts;i++) h+=`<span class="heart ${i<S.hearts?'':'off'}">♥</span>`;
+    $('hudHearts').innerHTML = `<span class="hearts">${h}</span>`;
+    $('hudStars').innerHTML = `★ ${S.stars}`;
+    $('hudCombo').innerHTML = S.combo>1 ? `🔥连击 x${S.combo}` : '';
+    $('hudFace').innerHTML = avatarHTML(S.skin,true);
+    this.renderRes('resBar');
+  },
+  renderRes(target){
+    const r=S.res;
+    $(target).innerHTML = `
+      <div class="resItem"><span class="ore wood"></span>${r.wood}</div>
+      <div class="resItem"><span class="ore stone"></span>${r.stone}</div>
+      <div class="resItem"><span class="ore iron"></span>${r.iron}</div>
+      <div class="resItem"><span class="ore diamond"></span>${r.diamond}</div>`;
+  },
+
+  tap(i){
+    if(S.busy) return;
+    const t=S.board[i]; if(!t||t.done) return;
+    if(S.sel===null){ S.sel=i; this.renderBoard(); return; }
+    if(S.sel===i){ S.sel=null; this.renderBoard(); return; }
+    const a=S.board[S.sel], b=t;
+    if(a.k===b.k){ S.sel=i; this.renderBoard(); return; }
+    const q = a.k==='q'?a:b;
+    const ansTile = a.k==='a'?a:b;
+    if(q.pid===ansTile.pid){ this.success(S.sel,i); }
+    else { this.fail(S.sel,i); }
+  },
+
+  success(i,j){
+    beep('good');
+    S.board[i].done=true; S.board[j].done=true; S.sel=null;
+    S.combo++;
+    const baseStar = S.tool>=1 ? 2 : 1;
+    S.stars += baseStar + (S.combo>=3?1:0);
+    this.giveOre();
+    document.querySelectorAll(`.tile[data-i='${i}'],.tile[data-i='${j}']`).forEach(e=>e.classList.add('match'));
+    S.busy=true;
+    setTimeout(()=>{ S.busy=false; this.renderHUD(); this.renderBoard();
+      if(S.board.every(t=>t.done)) this.win();
+    },360);
+  },
+
+  fail(i,j){
+    const e1=document.querySelector(`.tile[data-i='${i}']`), e2=document.querySelector(`.tile[data-i='${j}']`);
+    [e1,e2].forEach(e=>e&&e.classList.add('wrong'));
+    S.busy=true;
+    if(S.shield){            // 护盾抵挡
+      S.shield=false; beep('good');
+      setTimeout(()=>{ S.busy=false; S.sel=null; toast('🛡️ 护盾挡住了，不扣血！');
+        this.renderHUD(); this.renderSkills(); this.renderBoard(); },330);
+      return;
+    }
+    beep('bad'); S.hearts--; S.combo=0;
+    setTimeout(()=>{ S.busy=false; S.sel=null; this.renderHUD();
+      if(S.hearts<=0){ this.lose(); } else this.renderBoard();
+    },320);
+  },
+
+  giveOre(){
+    const depth=S.world; const lucky=S.combo>=3;
+    let kind; const r=Math.random();
+    if(depth>=4) kind = r<.5?'diamond':(r<.85?'iron':'stone');
+    else if(depth===3) kind = r<.4?'iron':(r<.75?'stone':(r<.95?'wood':'diamond'));
+    else if(depth===2) kind = r<.5?'stone':(r<.9?'wood':'iron');
+    else kind = r<.8?'wood':'stone';
+    if(lucky){ const ord=['wood','stone','iron','diamond']; const idx=ord.indexOf(kind); kind=ord[Math.min(idx+1,3)]; }
+    let amt = S.tool>=4 ? 2 : 1;
+    S.res[kind]+=amt;
+    const names={wood:'木头',stone:'石头',iron:'铁',diamond:'钻石'};
+    toast(`⛏️ 挖到 ${names[kind]} ×${amt}！${lucky?' 🔥连击加成':''}`);
+  },
+
+  /* ---------- SKILLS ---------- */
+  useSkill(key){
+    if(S.busy) return;
+    const act = key==='shield' && S.shield;
+    if((S.skillUses[key]||0)<=0 && !act){ toast('这个技能用完啦'); return; }
+    if(key==='hint') this.skHint();
+    else if(key==='shield') this.skShield();
+    else if(key==='smash') this.skSmash();
+    else if(key==='storm') this.skStorm();
+  },
+  pickPair(){
+    const qs=S.board.map((t,i)=>({t,i})).filter(o=>o.t.k==='q'&&!o.t.done);
+    if(!qs.length) return null;
+    const q=qs[Math.floor(Math.random()*qs.length)];
+    const aIdx=S.board.findIndex(t=>t.k==='a'&&t.pid===q.t.pid&&!t.done);
+    return {qi:q.i, ai:aIdx};
+  },
+  skHint(){
+    const p=this.pickPair(); if(!p) return;
+    S.skillUses.hint--;
+    [p.qi,p.ai].forEach(i=>{const e=document.querySelector(`.tile[data-i='${i}']`);if(e){e.classList.add('sel');setTimeout(()=>e.classList.remove('sel'),1100);}});
+    toast('💡 看，这两个是一对哦！'); this.renderSkills();
+  },
+  skShield(){
+    if(S.shield){ toast('护盾已经开着啦'); return; }
+    S.skillUses.shield--; S.shield=true; beep('good');
+    toast('🛡️ 护盾开启，下次答错不扣血'); this.renderSkills();
+  },
+  skSmash(){
+    const p=this.pickPair(); if(!p) return;
+    S.skillUses.smash--;
+    toast('⚒️ 精准敲击！'); this.renderSkills();
+    this.success(p.qi, p.ai);
+  },
+  skStorm(){
+    S.skillUses.storm--;
+    const qs=S.board.map((t,i)=>({t,i})).filter(o=>o.t.k==='q'&&!o.t.done);
+    const half=Math.max(1,Math.ceil(qs.length/2));
+    const pick=shuffle(qs.slice()).slice(0,half);
+    let n=0;
+    pick.forEach(o=>{
+      const aIdx=S.board.findIndex(t=>t.k==='a'&&t.pid===o.t.pid&&!t.done);
+      S.board[o.i].done=true; S.board[aIdx].done=true;
+      S.stars+=2; S.res.diamond+=1; n++;
+    });
+    const fl=$('flash'); fl.classList.remove('on'); void fl.offsetWidth; fl.classList.add('on');
+    beep('win'); toast(`💎 钻石风暴！清除 ${n} 对，掉落 💎×${n}`);
+    S.sel=null; this.renderHUD(); this.renderSkills(); this.renderBoard();
+    if(S.board.every(t=>t.done)) setTimeout(()=>this.win(),550);
+  },
+
+  win(){
+    S.totalCleared++;
+    const bonus = 5 + S.world*2 + S.curStage*2;
+    S.stars += bonus;
+    const k=['wood','stone','iron','diamond'][Math.min(S.world,4)-1]||'wood';
+    const chestAmt = 2 + Math.floor(S.curStage/2);
+    S.res[k]+=chestAmt;
+    $('winBody').innerHTML = `
+      <p style="font-size:15px;margin-bottom:10px">通过 第${S.curStage+1}关！奖励 ⭐ ${bonus} 星</p>
+      <p style="font-size:14px;color:var(--gold)">🎁 宝箱：${({wood:'木头',stone:'石头',iron:'铁',diamond:'钻石'})[k]} ×${chestAmt}</p>
+      <p class="tip" style="margin-top:12px">总星星 ★ ${S.stars} · 累计通关 ${S.totalCleared} 关<br>⚠️ 下一关数字更大、方块更多，加油！</p>`;
+    this.renderHUD();
+    $('winOv').classList.add('on');
+  },
+  nextLevel(){ this.close('winOv'); S.stage[S.world]++; toast('🔥 难度提升！'); this.startWorld(S.world); },
+  retry(){ this.close('loseOv'); this.startWorld(S.world); },
+  lose(){ $('loseOv').classList.add('on'); },
+
+  /* ---------- CRAFT ---------- */
+  openCraft(){ this.renderCraft(); $('craftOv').classList.add('on'); },
+  renderCraft(){
+    const cur=TOOLS[S.tool];
+    let html = `<div class="toolRow" style="box-shadow:inset 0 0 0 3px var(--gold)">
+      <div class="toolPic">${cur.icon}</div>
+      <div><h4>当前：${cur.name}</h4><p>${cur.bonus}</p></div></div>`;
+    if(S.tool<TOOLS.length-1){
+      const nxt=TOOLS[S.tool+1];
+      const can=this.canPay(nxt.cost);
+      html += `<p class="tip" style="margin:8px 0">⬇️ 融合升级</p>
+        <div class="toolRow">
+          <div class="toolPic">${nxt.icon}</div>
+          <div><h4>${nxt.name}</h4><p>${nxt.bonus}</p>
+            <div class="cost">需要：${this.costText(nxt.cost)}</div></div>
+          <button class="btn green fuseBtn" ${can?'':'disabled'} onclick="G.fuse()">融合</button>
+        </div>`;
+    } else {
+      html += `<p class="tip" style="margin-top:14px">🏆 已是最强的钻石镐，全部技能解锁！</p>`;
+    }
+    $('craftBody').innerHTML = html;
+  },
+  canPay(cost){ return Object.entries(cost).every(([k,v])=>S.res[k]>=v); },
+  costText(cost){ const n={wood:'木头',stone:'石头',iron:'铁',diamond:'钻石'};
+    return Object.entries(cost).map(([k,v])=>`${n[k]}×${v}`).join('、'); },
+  fuse(){
+    const nxt=TOOLS[S.tool+1]; if(!this.canPay(nxt.cost)) return;
+    Object.entries(nxt.cost).forEach(([k,v])=>S.res[k]-=v);
+    S.tool++; beep('win');
+    const sk=SKILLS.find(s=>s.tier===S.tool);
+    toast(`🔨 融合成功！获得 ${nxt.name}${sk?'，解锁技能 '+sk.icon+sk.name:''}`);
+    if(sk){ S.skillUses[sk.key]=sk.uses; }   // 当前关立刻可用
+    this.renderCraft();
+    if($('game').classList.contains('on')){ this.renderHUD(); this.renderSkills(); }
+  },
+
+  /* ---------- SKINS ---------- */
+  openSkin(){ this.renderSkin(); $('skinOv').classList.add('on'); },
+  renderSkin(){
+    $('skinBody').innerHTML = Object.entries(SKINS).map(([id,sk])=>{
+      const owned=S.skinsOwned.includes(id);
+      const eq=S.skin===id;
+      let foot;
+      if(eq) foot=`<div class="owned">✔ 使用中</div>`;
+      else if(owned) foot=`<div class="owned">已拥有 · 点击装备</div>`;
+      else foot=`<div class="price">${sk.cost===0?'免费':this.costText(sk.cost)}</div>`;
+      return `<div class="skinCard ${eq?'equipped':''}" onclick="G.pickSkin('${id}')">
+        ${avatarHTML(id,true)}<h5>${sk.name}</h5>${foot}</div>`;
+    }).join('');
+  },
+  pickSkin(id){
+    const sk=SKINS[id];
+    if(S.skinsOwned.includes(id)){ S.skin=id; toast(`已装备：${sk.name}`); }
+    else {
+      if(sk.cost!==0 && !this.canPay(sk.cost)){ toast('矿石不够，再多挖一点！'); return; }
+      if(sk.cost!==0) Object.entries(sk.cost).forEach(([k,v])=>S.res[k]-=v);
+      S.skinsOwned.push(id); S.skin=id; beep('good');
+      toast(`🎨 解锁并装备：${sk.name}！`);
+    }
+    this.renderSkin();
+    $('titleAvatar').innerHTML = avatarHTML(S.skin,false);
+    if($('game').classList.contains('on')) this.renderHUD();
+  },
+
+  close(id){ $(id).classList.remove('on'); }
+};
+
+/* ===================== 消消乐 CRUSH MODE ===================== */
+const COLNUM={1:'#6fae5f',2:'#5fa3d6',3:'#d6925f',4:'#cf5f96',5:'#9a7fe0',6:'#d8c14f',7:'#4fd1b4',8:'#d65f5f',9:'#7f8a99'};
+let CR=null;
+const M = {
+  cfg(stage){
+    const N = stage>=3 ? 6 : 5;
+    const targets=[10,10,12,15,18,20];
+    const target = stage<targets.length ? targets[stage] : 20+(stage-5)*3;
+    const goal = 5+stage;
+    const maxV = Math.min(9, target-1);
+    return {N,target,goal,maxV};
+  },
+  start(){ this.startLevel(); },
+  startLevel(){
+    const c=this.cfg(S.crushStage);
+    S.maxHearts = S.tool>=2?6:5; if(S.tool>=4) S.maxHearts=7;
+    CR = {N:c.N,target:c.target,goal:c.goal,maxV:c.maxV,cleared:0,score:0,
+      hearts:S.maxHearts,sel:[],selWrong:false,grid:[],combo:0,
+      hints:2+(S.tool>=1?1:0),shuffles:3,busy:false};
+    this.fillGrid();
+    let t=0; while(!this.hasMove()&&t++<40) this.fillGrid();
+    show('crush'); this.render();
+  },
+  randVal(){
+    const pool=[]; for(let v=1;v<=CR.maxV;v++){ const w=v<=5?3:1; for(let k=0;k<w;k++) pool.push(v); }
+    return pool[Math.floor(Math.random()*pool.length)];
+  },
+  fillGrid(){
+    CR.grid=[]; for(let r=0;r<CR.N;r++){ const row=[]; for(let c=0;c<CR.N;c++) row.push(this.randVal()); CR.grid.push(row); }
+  },
+  render(){
+    if(!CR) return;
+    let h=''; for(let i=0;i<S.maxHearts;i++) h+=`<span class="heart ${i<CR.hearts?'':'off'}">♥</span>`;
+    $('cHearts').innerHTML=`<span class="hearts">${h}</span>`;
+    $('cProg').textContent=`${CR.cleared}/${CR.goal}`;
+    $('cScore').textContent=CR.score;
+    $('cTarget').textContent=CR.target;
+    const sum=CR.sel.reduce((a,p)=>a+CR.grid[p.r][p.c],0);
+    const se=$('cSum'); se.textContent=sum;
+    se.style.color = sum>CR.target?'var(--red)':(sum===CR.target?'var(--grass)':'var(--cyan)');
+    $('cFace').innerHTML=avatarHTML(S.skin,true);
+    $('cHintU').textContent='×'+CR.hints; $('cHintBtn').disabled=CR.hints<=0||CR.busy;
+    $('cShufU').textContent='×'+CR.shuffles; $('cShufBtn').disabled=CR.shuffles<=0||CR.busy;
+    const g=$('crushGrid'); g.style.gridTemplateColumns=`repeat(${CR.N},1fr)`;
+    let html='';
+    for(let r=0;r<CR.N;r++)for(let c=0;c<CR.N;c++){
+      const v=CR.grid[r][c];
+      const idx=CR.sel.findIndex(p=>p.r===r&&p.c===c);
+      const cls = idx>=0 ? (CR.selWrong?'cwrong':'csel') : '';
+      html+=`<button class="cnum ${cls}" data-r="${r}" data-c="${c}" style="background:${COLNUM[v]||'#888'}">${v}${idx>=0?`<span class="order">${idx+1}</span>`:''}</button>`;
+    }
+    g.innerHTML=html;
+    g.querySelectorAll('.cnum').forEach(el=>el.onclick=()=>M.tap(+el.dataset.r,+el.dataset.c));
+  },
+  tap(r,c){
+    if(CR.busy) return;
+    const sel=CR.sel;
+    const idx=sel.findIndex(p=>p.r===r&&p.c===c);
+    if(sel.length===0){ sel.push({r,c}); this.after(); return; }
+    if(idx===sel.length-1){ sel.pop(); this.render(); return; }   // 撤回最后一个
+    if(idx>=0) return;                                             // 已选中间的，忽略
+    const last=sel[sel.length-1];
+    if(Math.abs(r-last.r)+Math.abs(c-last.c)!==1) return;          // 必须相邻
+    sel.push({r,c}); this.after();
+  },
+  after(){
+    const sum=CR.sel.reduce((a,p)=>a+CR.grid[p.r][p.c],0);
+    if(sum===CR.target) this.clearSel();
+    else if(sum>CR.target) this.overshoot();
+    else this.render();
+  },
+  clearSel(){
+    CR.busy=true; beep('good');
+    const cells=CR.sel.slice();
+    CR.combo++;
+    const gain=CR.target + (CR.combo>=3?5:0);
+    CR.score+=gain; CR.cleared++;
+    this.giveOre();
+    this.render();
+    toast(`+${gain} 分${CR.combo>=3?'  🔥连击 x'+CR.combo:''}`);
+    setTimeout(()=>{
+      cells.forEach(p=>CR.grid[p.r][p.c]=null);
+      this.gravity(); CR.sel=[]; CR.busy=false; this.render();
+      if(CR.cleared>=CR.goal){ this.win(); return; }
+      if(!this.hasMove()) this.reshuffle(true);
+    },300);
+  },
+  overshoot(){
+    CR.busy=true; beep('bad'); CR.combo=0; CR.hearts--;
+    CR.selWrong=true; this.render(); toast('太大啦，重新选 😅');
+    setTimeout(()=>{ CR.selWrong=false; CR.sel=[]; CR.busy=false;
+      if(CR.hearts<=0) this.lose(); else this.render();
+    },360);
+  },
+  resetSel(){ if(CR.busy) return; CR.sel=[]; this.render(); },
+  gravity(){
+    for(let c=0;c<CR.N;c++){
+      const vals=[];
+      for(let r=0;r<CR.N;r++) if(CR.grid[r][c]!=null) vals.push(CR.grid[r][c]);
+      const missing=CR.N-vals.length;
+      for(let r=0;r<CR.N;r++) CR.grid[r][c] = r<missing ? this.randVal() : vals[r-missing];
+    }
+  },
+  paths(wantPath){
+    const N=CR.N,T=CR.target,g=CR.grid,dirs=[[1,0],[-1,0],[0,1],[0,-1]]; let res=null;
+    const dfs=(r,c,sum,path,depth)=>{
+      if(res) return; sum+=g[r][c];
+      if(sum===T){ res=path.slice(); return; }
+      if(sum>=T||depth>=5) return;
+      for(const [dr,dc] of dirs){ const nr=r+dr,nc=c+dc;
+        if(nr<0||nc<0||nr>=N||nc>=N) continue;
+        if(path.some(p=>p.r===nr&&p.c===nc)) continue;
+        path.push({r:nr,c:nc}); dfs(nr,nc,sum,path,depth+1); path.pop(); }
+    };
+    for(let r=0;r<N&&!res;r++)for(let c=0;c<N&&!res;c++) dfs(r,c,0,[{r,c}],1);
+    return res;
+  },
+  hasMove(){ return !!this.paths(); },
+  hint(){
+    if(CR.busy) return;
+    if(CR.hints<=0){ toast('提示用完啦'); return; }
+    const p=this.paths(true); if(!p){ toast('没招了，试试洗牌'); return; }
+    CR.hints--; CR.sel=[]; this.render();
+    p.forEach(pp=>{ const el=document.querySelector(`.cnum[data-r='${pp.r}'][data-c='${pp.c}']`); if(el) el.classList.add('chint'); });
+    toast('💡 这几个加起来正好是 '+CR.target);
+    setTimeout(()=>this.render(),1500);
+  },
+  reshuffle(auto){
+    if(CR.busy&&!auto) return;
+    if(!auto){ if(CR.shuffles<=0){ toast('洗牌用完啦'); return; } CR.shuffles--; }
+    let t=0; do{ this.fillGrid(); }while(!this.hasMove()&&t++<40);
+    CR.sel=[]; toast(auto?'🔀 没有能凑的了，自动洗牌':'🔀 洗牌！'); this.render();
+  },
+  giveOre(){
+    const r=Math.random(); let kind;
+    if(CR.target>=15) kind=r<.4?'iron':(r<.7?'stone':(r<.9?'diamond':'wood'));
+    else kind=r<.6?'wood':(r<.9?'stone':'iron');
+    if(CR.combo>=3){ const ord=['wood','stone','iron','diamond']; kind=ord[Math.min(ord.indexOf(kind)+1,3)]; }
+    S.res[kind]+=(S.tool>=4?2:1);
+  },
+  win(){
+    CR.busy=true; S.crushStage++;
+    S.stars += Math.round(CR.score/5);
+    const chest = 1 + Math.floor((S.crushStage-1)/2);
+    S.res.diamond += chest;
+    $('cwBody').innerHTML = `
+      <p style="font-size:15px;margin-bottom:10px">本关得分 ⭐ ${CR.score} · 凑成 ${CR.cleared} 组！</p>
+      <p style="font-size:14px;color:var(--gold)">🎁 宝箱：钻石 ×${chest}</p>
+      <p class="tip" style="margin-top:12px">下一关目标更大、棋盘更满，加油！</p>`;
+    $('crushWin').classList.add('on');
+  },
+  lose(){ $('crushLose').classList.add('on'); },
+};
+G.goModes = function(){ show('modes'); };
+
+function rand(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
+function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+
+G.start();
+</script>
