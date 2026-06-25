@@ -1,5 +1,36 @@
 import unittest
-from gen_data import normalize_code
+from gen_data import normalize_code, initial_stage, final_stage, world_for
+
+
+class WorldForTest(unittest.TestCase):
+    """按课本拼音进度归世界（喂 pypinyin strict 声母/韵母串，纯函数无需 pypinyin）。"""
+
+    def test_single_final_zero_initial_is_world1(self):
+        self.assertEqual(world_for("", "a"), 1)    # 啊
+        self.assertEqual(world_for("", "v"), 1)    # 鱼(ü)
+        self.assertEqual(world_for("", "er"), 1)   # 二
+
+    def test_initial_groups_advance_world(self):
+        self.assertEqual(world_for("b", "a"), 2)   # 爸
+        self.assertEqual(world_for("g", "e"), 3)   # 哥
+        self.assertEqual(world_for("zh", "i"), 4)  # 知
+
+    def test_compound_final_dominates_over_initial(self):
+        self.assertEqual(world_for("", "uo"), 5)   # 我：零声母也因复韵母进世界5
+        self.assertEqual(world_for("h", "ao"), 5)  # 好
+        self.assertEqual(world_for("sh", "uei"), 5)  # 水
+
+    def test_nasal_final_is_world6(self):
+        self.assertEqual(world_for("", "vn"), 6)     # 云(ün)
+        self.assertEqual(world_for("g", "uang"), 6)  # 光
+        self.assertEqual(world_for("h", "ong"), 6)   # 红
+        self.assertEqual(final_stage("ian"), 6)      # 天
+
+    def test_initial_stage_boundaries(self):
+        self.assertEqual(initial_stage(""), 1)
+        self.assertEqual(initial_stage("l"), 2)
+        self.assertEqual(initial_stage("x"), 3)
+        self.assertEqual(initial_stage("r"), 4)
 
 
 class NormalizeCodeTest(unittest.TestCase):
