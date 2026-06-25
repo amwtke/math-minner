@@ -133,12 +133,12 @@ PM **只抄 `M` 的关卡外壳**：`cfg(stage)` 难度曲线、hearts/score/com
 - **服务器离线兜底**：拉取失败**不阻断游戏**——前端给「继续（暂无发音）」按钮，降级静音+纯视觉，提示「服务器联网后重进语文即可补全发音」。
 - **零第三方依赖**：`urllib.request` + `zipfile` 全是 Python 标准库，`server.py` 不引入任何包。
 
-⚠️ 实现期第一步：核对 davinfifield 仓库的真实分支名（master/main）、mp3 子目录路径、以及 ü 的命名（`v` 还是 `ü`），再写下载逻辑。
+✅ davinfifield 仓库结构已联网核实：默认分支 `master`、mp3 在 `mp3/` 子目录、zip 直链 `https://codeload.github.com/davinfifield/mp3-chinese-pinyin-sound/zip/refs/heads/master`、ü 写作 `uu`、The Unlicense。
 
 ### 6.2 落地细节
 
 - 目录 `audio/pinyin/<code>.mp3`（与 `fonts/` 平级，现有静态服务自动托管，无需新路由）。`<code>` = 不带声调字母 + 调号数字（`ba1` `mao1` `hao3`）。轻声用 `5` 或省略。
-- **ü 的文件名约定按 davinfifield 实际命名核对**（常见用 `v`：lü→`lv3.mp3`）。前端用 `/api/audio/status` 判断整体是否就绪；单个文件缺失则 `.catch` 静默降级，不需单独 manifest。
+- **ü 的文件名按 davinfifield 实际命名**（已联网核实：ü 写作 `uu`，lü→`luu3.mp3`、nǚ→`nuu3.mp3`、lüe→`luue`；ju/qu/xu/yu 不变）。前端用 `/api/audio/status` 判断整体是否就绪；单个文件缺失则 `.catch` 静默降级，不需单独 manifest。
 - 单字发音 = 直接播放其音节文件。**davinfifield 只有音节级音频，没有整词录音**，故多字词（如「太阳」）= 按 `PINYIN_DATA` 里每个字的 code **顺序播放**（`tai4` → `yang2`，间隔 ~120ms），不做音频拼接。一期可只对单字玩法发音，双字词发音放二期。
 
 **server.py 改动**（静态白名单 +4 行；外加音频拉取端点 ~50 行，全标准库）：
@@ -198,10 +198,10 @@ PM **只抄 `M` 的关卡外壳**：`cfg(stage)` 难度曲线、hearts/score/com
 | 旧存档无新字段→第 NaN 关 | `applySave` 用 `Object.assign` 兜底 |
 | 把消消乐 M 硬改成拼读 | 明确不走这条路，另写 PM，只抄关卡外壳 |
 | iOS 音频自动播放被拒 | 所有 `playPy` 在点击回调内；首次手势静音解锁；听音找字自动复播也须在手势链内 |
-| 音频文件 ü/缺失音节 | 单文件缺失则播放 `.catch` 静默降级；下载逻辑按 davinfifield 实际命名（ü→`v`）映射 |
+| 音频文件 ü/缺失音节 | 单文件缺失则播放 `.catch` 静默降级；下载逻辑按 davinfifield 实际命名（ü→`uu`，已核实）映射 |
 | 多音字读错音 | 见 §5 多音字防护 + `polyphone_review.txt` 人工过审 |
 | 运行时拉取失败 / 服务器无网 | 不阻断游戏，降级静音+「继续」按钮；联网后重进语文补全；下载加锁防并发、`.ready` 哨兵保证幂等可重跑 |
-| davinfifield 仓库结构/分支/ü命名 变化 | 实现首步先验证真实结构再写下载逻辑；解压做 zip-slip 路径越界校验 |
+| davinfifield 仓库结构/分支 未来变化 | 已核实 `master`/`mp3/`/ü→`uu`/Unlicense；解压做 zip-slip 路径越界校验 |
 | 多设备同时首次进语文触发并发下载 | 服务器端锁 + 下载中状态标志，只下一次，其余等待结果 |
 
 ## 10. 涉及文件清单
