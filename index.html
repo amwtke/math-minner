@@ -96,6 +96,34 @@
     background:var(--bg2);color:#cdd6e0;border-radius:6px;cursor:pointer;}
   .vcBtn.on{background:var(--gold);color:#3a2a06;border-color:var(--gold);}
 
+  /* 语文单元玩法：听音找字 / 声调 / 拼读 */
+  .cnqTitle{text-align:center;font-family:var(--pix);font-size:12px;color:var(--gold);margin:6px 0 10px;}
+  .cnqPrompt{text-align:center;margin-bottom:14px;}
+  .cnqBig{font-family:var(--cn);font-size:60px;font-weight:700;color:#fff;line-height:1.1;}
+  .cnqPy{font-family:var(--cn);font-size:24px;color:var(--cyan);margin-top:2px;min-height:30px;}
+  .cnqSpeak{font-family:var(--cn);font-size:15px;font-weight:700;margin-top:10px;padding:9px 18px;border:none;
+    border-radius:8px;background:var(--cyan);color:#0c2a26;cursor:pointer;box-shadow:inset 0 -4px 0 rgba(0,0,0,.25);}
+  .cnqHint{text-align:center;font-family:var(--cn);font-size:14px;color:#9fb0c0;margin-top:12px;min-height:18px;}
+  .cnqBody{display:grid;gap:10px;}
+  .cnqBody.listenGrid{grid-template-columns:repeat(auto-fill,minmax(80px,1fr));}
+  .cnqChar{min-height:82px;display:flex;align-items:center;justify-content:center;border:none;border-radius:8px;
+    background:var(--stone);box-shadow:inset 0 -5px 0 rgba(0,0,0,.3);cursor:pointer;}
+  .cnqChar .val{font-family:var(--cn);font-size:30px;font-weight:700;color:#fff;}
+  .cnqBody.toneRow{grid-template-columns:repeat(4,1fr);}
+  .cnqTone{display:flex;flex-direction:column;align-items:center;gap:4px;padding:16px 6px;border:none;border-radius:8px;
+    background:var(--dirt);box-shadow:inset 0 -5px 0 rgba(0,0,0,.3);cursor:pointer;}
+  .cnqTone .tmark{font-family:var(--cn);font-size:28px;font-weight:700;color:#fff;}
+  .cnqTone .tname{font-family:var(--cn);font-size:12px;color:#ffeede;}
+  .cnqChar.match,.cnqTone.match,.pmBtn.match{outline:4px solid var(--grass);outline-offset:-4px;transform:scale(1.03);}
+  .cnqChar.wrong,.cnqTone.wrong,.pmBtn.wrong{outline:4px solid var(--red);outline-offset:-4px;animation:shake .3s;}
+  /* 拼读 PM */
+  .pmRow{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:8px;align-items:center;}
+  .pmRow .pmLab{font-family:var(--cn);font-size:13px;color:var(--gold);margin-right:2px;}
+  .pmBtn{font-family:var(--cn);font-size:19px;font-weight:700;padding:7px 13px;border:2px solid var(--stone-d);
+    background:var(--bg2);color:#cdd6e0;border-radius:8px;cursor:pointer;}
+  .pmBtn.on{background:var(--gold);color:#3a2a06;border-color:var(--gold);}
+  .pmAssembled{text-align:center;font-family:var(--cn);font-size:30px;color:var(--cyan);min-height:40px;margin:4px 0 12px;letter-spacing:1px;}
+
   /* BOARD */
   .board{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;}
   .tile{
@@ -297,6 +325,26 @@
     </div>
   </section>
 
+  <!-- 语文单元玩法（听音找字 / 声调 / 拼读）共用一屏 -->
+  <section id="cnq" class="screen">
+    <div class="hud">
+      <div class="grp hearts" id="qHearts"></div>
+      <div class="grp stars">★ <span id="qScore">0</span></div>
+      <div class="grp" id="qProg" style="color:var(--grass);font-size:11px"></div>
+      <div id="qFace"></div>
+    </div>
+    <div class="res" id="qRes"></div>
+    <div class="cnqTitle pix" id="qTitle"></div>
+    <div class="cnqPrompt" id="qPrompt"></div>
+    <div class="cnqBody" id="qBody"></div>
+    <div class="cnqHint" id="qHint"></div>
+    <div class="controls" style="margin-top:16px">
+      <button class="btn gray" onclick="G.goModes('cn')">🏠 玩法</button>
+      <button class="btn cyan" onclick="G.openCraft()">🔨 融合</button>
+      <button class="btn gray" onclick="G.openSkin()">🎨 皮肤</button>
+    </div>
+  </section>
+
   <!-- WORLD SELECT -->
   <section id="worlds" class="screen">
     <div class="logo pix" style="font-size:18px">选择世界</div>
@@ -389,6 +437,21 @@
     <button class="btn gray" onclick="G.close('crushLose');G.goModes()">玩法</button>
   </div></div></div>
 
+<!-- 语文单元玩法 通关 / 失败（按钮 onclick 由引擎动态绑定到当前玩法） -->
+<div class="overlay" id="cnqWin"><div class="panel" style="text-align:center">
+  <h2 class="win pix">🎉 过关！</h2><div id="cnqwBody"></div>
+  <div class="closeRow">
+    <button class="btn green" id="cnqWinNext">再来一关 ▶</button>
+    <button class="btn gray" onclick="G.close('cnqWin');G.goModes('cn')">玩法</button>
+  </div></div></div>
+<div class="overlay" id="cnqLose"><div class="panel" style="text-align:center">
+  <h2 class="lose pix">💥 心碎光了</h2>
+  <p class="tip" id="cnqlMsg" style="margin-top:0">别灰心，矿石和工具都还在！</p>
+  <div class="closeRow">
+    <button class="btn green" id="cnqLoseRetry">重 试 🔄</button>
+    <button class="btn gray" onclick="G.close('cnqLose');G.goModes('cn')">玩法</button>
+  </div></div></div>
+
 <div class="toast" id="toast"></div>
 <div class="flash" id="flash"></div>
 
@@ -463,6 +526,7 @@ function freshState(){
     stage:{1:0,2:0,3:0,4:0}, curStage:0, diff:null, totalCleared:0, crushStage:0,
     board:[], sel:null, skillUses:{}, shield:false, busy:false,
     subject:'math', voiceSpeed:2,
+    listenStage:0, toneStage:0, spellStage:0,
     pyMatchStage:pyStageDefaults() };
 }
 
@@ -518,7 +582,7 @@ function avatarHTML(skinId,small){
 
 /* ===================== 多人登录 ===================== */
 const USER_KEY='mathminer_user';
-const SAVE_FIELDS=['res','tool','skinsOwned','skin','stage','crushStage','stars','totalCleared','pyMatchStage','voiceSpeed'];
+const SAVE_FIELDS=['res','tool','skinsOwned','skin','stage','crushStage','stars','totalCleared','pyMatchStage','voiceSpeed','listenStage','toneStage','spellStage'];
 function escapeHTML(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 const Auth = {
@@ -575,6 +639,7 @@ function applySave(d){
   S.stage = Object.assign({1:0,2:0,3:0,4:0}, S.stage||{});
   S.pyMatchStage = Object.assign(pyStageDefaults(), S.pyMatchStage||{});
   if(typeof S.voiceSpeed!=='number') S.voiceSpeed=2;   // 旧档无语速字段→默认「快」
+  ['listenStage','toneStage','spellStage'].forEach(k=>{ if(typeof S[k]!=='number') S[k]=0; });
   if(!SKINS[S.skin]) S.skin='steve';
 }
 let _saveInflight=false, _saveDirty=false;
@@ -1144,6 +1209,14 @@ function renderModes(subj){
       <div class="world" style="background:linear-gradient(135deg,var(--grass),rgba(0,0,0,.25))" onclick="PG.start()">
         <div class="wicon" style="background:var(--grass)"></div>
         <div><h3>🔤 拼音配对挖矿</h3><p>汉字配拼音，挖方块学认读</p></div>
+      </div>
+      <div class="world" style="background:linear-gradient(135deg,var(--cyan),rgba(0,0,0,.25))" onclick="LISTEN.start()">
+        <div class="wicon" style="background:var(--cyan)"></div>
+        <div><h3>👂 听音找字</h3><p>听发音，从几个字里点出对的那个</p></div>
+      </div>
+      <div class="world" style="background:linear-gradient(135deg,var(--gold),rgba(0,0,0,.25))" onclick="TONE.start()">
+        <div class="wicon" style="background:var(--gold)"></div>
+        <div><h3>🎵 声调小游戏</h3><p>这个字读第几声？听音辨调</p></div>
       </div>`;
   } else {
     list.innerHTML = `
@@ -1157,6 +1230,144 @@ function renderModes(subj){
       </div>`;
   }
 }
+
+/* ===== 语文单元玩法（听音找字 / 声调小游戏 / 拼音拼读）共用外壳 ===== */
+let CNQ=null;                                   // 当前单元玩法运行时（类比 CR）
+function _cnSingles(){ return Object.keys(PINYIN_DATA).filter(h=>h.length===1); }  // 仅单字
+function _toneOf(code){ const m=/([1-5])$/.exec(code||''); return m?+m[1]:0; }      // 末位声调数字
+// 去声调号但保留 ü 的两点：分解后删 4 个声调组合符（U+0300/01/04/0C），保留分音符 U+0308
+function _toneless(py){ const M=new Set([0x300,0x301,0x304,0x30c]);   // ˋ ˊ ˉ ˇ（保留 ü 的两点 0x308）
+  return Array.from(py.normalize('NFD')).filter(c=>!M.has(c.codePointAt(0))).join('').normalize('NFC'); }
+function cnqMaxHearts(){ let h=S.tool>=2?6:5; if(S.tool>=4) h=7; return h; }
+function cnqHUD(){
+  let h=''; for(let i=0;i<CNQ.maxHearts;i++) h+=`<span class="heart ${i<CNQ.hearts?'':'off'}">♥</span>`;
+  $('qHearts').innerHTML=`<span class="hearts">${h}</span>`;
+  $('qScore').textContent=CNQ.score;
+  $('qProg').innerHTML=`完成 ${CNQ.cleared}/${CNQ.goal}`;
+  $('qFace').innerHTML=avatarHTML(S.skin,true);
+  G.renderRes('qRes');
+}
+function cnqOre(){                               // 复用挖矿经济：按本玩法 depth 决定矿石档次
+  const d=CNQ.depth, r=Math.random(); let kind;
+  if(d>=4) kind=r<.45?'diamond':(r<.8?'iron':'stone');
+  else if(d>=3) kind=r<.4?'iron':(r<.8?'stone':'wood');
+  else if(d>=2) kind=r<.5?'stone':(r<.9?'wood':'iron');
+  else kind=r<.8?'wood':'stone';
+  if(CNQ.combo>=3){ const o=['wood','stone','iron','diamond']; kind=o[Math.min(o.indexOf(kind)+1,3)]; }
+  S.res[kind]+=(S.tool>=4?2:1);
+}
+function cnqGood(){ CNQ.combo++; CNQ.score+=2+(CNQ.combo>=3?1:0); CNQ.cleared++; cnqOre(); }
+function cnqWin(stageKey, restart, hintLine){
+  CNQ.busy=true; S[stageKey]++;
+  const bonus=5+Math.round(CNQ.score/4), chest=1+Math.floor(S[stageKey]/2);
+  S.stars+=bonus; S.res.diamond+=chest;
+  $('cnqwBody').innerHTML=`
+    <p style="font-size:15px;margin-bottom:10px">本关答对 ${CNQ.cleared} 题！奖励 ⭐ ${bonus} 星</p>
+    <p style="font-size:14px;color:var(--gold)">🎁 宝箱：钻石 ×${chest}</p>
+    <p class="tip" style="margin-top:12px">${hintLine}</p>`;
+  $('cnqWinNext').onclick=()=>{ G.close('cnqWin'); restart(); };
+  $('cnqWin').classList.add('on'); saveGame();
+}
+function cnqLose(restart){
+  CNQ.busy=true;
+  $('cnqLoseRetry').onclick=()=>{ G.close('cnqLose'); restart(); };
+  $('cnqLose').classList.add('on'); saveGame();
+}
+function cnqHit(el){ el.classList.add('match'); }
+function cnqMiss(el){
+  beep('bad'); CNQ.combo=0; CNQ.hearts--; el.classList.add('wrong'); cnqHUD();
+  setTimeout(()=>el.classList.remove('wrong'),360);
+}
+
+const LISTEN = {
+  start(){
+    S.subject='cn'; const stage=S.listenStage;
+    CNQ={kind:'listen', hearts:cnqMaxHearts(), maxHearts:cnqMaxHearts(), score:0, cleared:0, combo:0,
+      goal:6+stage, n:Math.min(3+Math.floor(stage/2),8), depth:Math.min(1+Math.floor(stage/2),4),
+      busy:false, pool:_cnSingles(), cur:null};
+    $('qTitle').textContent=`👂 听音找字 · 第${stage+1}关`;
+    show('cnq'); this.next();
+  },
+  next(){
+    CNQ.busy=false;
+    const target=CNQ.pool[Math.floor(Math.random()*CNQ.pool.length)];
+    const choices=this.pick(target);
+    CNQ.cur={target, audio:(PINYIN_DATA[target]||{}).code||[]};
+    cnqHUD();
+    $('qPrompt').innerHTML=`<button class="cnqSpeak" id="qSpeak">🔊 再听一遍</button>`;
+    $('qSpeak').onclick=()=>{ if(CNQ.cur) playPy(CNQ.cur.audio); };
+    $('qHint').textContent='听发音，点出对应的字';
+    $('qBody').className='cnqBody listenGrid';
+    $('qBody').innerHTML=choices.map(hz=>`<button class="cnqChar" data-hz="${hz}"><span class="val">${hz}</span></button>`).join('');
+    $('qBody').querySelectorAll('.cnqChar').forEach(b=>b.onclick=()=>LISTEN.answer(b.dataset.hz,b));
+    playPy(CNQ.cur.audio);
+  },
+  pick(target){                                  // 干扰项优先取同世界（同阶段、更易混）
+    const w=PINYIN_WORLDS.find(W=>W.words.includes(target));
+    let bag=shuffle((w?w.words:[]).filter(h=>h.length===1&&h!==target)).slice(0,CNQ.n-1);
+    if(bag.length<CNQ.n-1){
+      const more=shuffle(CNQ.pool.filter(h=>h!==target&&!bag.includes(h)));
+      bag=bag.concat(more.slice(0,CNQ.n-1-bag.length));
+    }
+    return shuffle(bag.concat(target));
+  },
+  answer(hz,el){
+    if(CNQ.busy) return;
+    if(hz===CNQ.cur.target){
+      CNQ.busy=true; beep('good'); cnqHit(el); playPy(CNQ.cur.audio); cnqGood(); cnqHUD();
+      if(CNQ.cleared>=CNQ.goal){ setTimeout(()=>this.win(),850); return; }
+      setTimeout(()=>this.next(),850);
+    } else {
+      cnqMiss(el);
+      if(CNQ.hearts<=0){ CNQ.busy=true; setTimeout(()=>this.lose(),320); }
+    }
+  },
+  win(){ cnqWin('listenStage', ()=>LISTEN.start(), '下一关字更多、更易混，加油！'); },
+  lose(){ cnqLose(()=>LISTEN.start()); },
+};
+
+const TONE = {
+  marks:[{m:'ˉ',n:'一声',t:1},{m:'ˊ',n:'二声',t:2},{m:'ˇ',n:'三声',t:3},{m:'ˋ',n:'四声',t:4}],
+  start(){
+    S.subject='cn'; const stage=S.toneStage;
+    const pool=_cnSingles().filter(h=>{ const c=(PINYIN_DATA[h]||{}).code||[]; const t=_toneOf(c[0]); return c.length===1&&t>=1&&t<=4; });
+    CNQ={kind:'tone', hearts:cnqMaxHearts(), maxHearts:cnqMaxHearts(), score:0, cleared:0, combo:0,
+      goal:6+stage, depth:Math.min(1+Math.floor(stage/2),4), busy:false, pool, cur:null};
+    $('qTitle').textContent=`🎵 声调小游戏 · 第${stage+1}关`;
+    show('cnq'); this.next();
+  },
+  next(){
+    CNQ.busy=false;
+    const target=CNQ.pool[Math.floor(Math.random()*CNQ.pool.length)];
+    const d=PINYIN_DATA[target], code=d.code[0];
+    CNQ.cur={target, tone:_toneOf(code), code:[code], py:d.py};
+    cnqHUD();
+    $('qPrompt').innerHTML=`<div class="cnqBig">${target}</div>
+      <div class="cnqPy" id="qPy">${_toneless(d.py)}</div>
+      <button class="cnqSpeak" id="qSpeak">🔊 听发音</button>`;
+    $('qSpeak').onclick=()=>{ if(CNQ.cur) playPy(CNQ.cur.code); };
+    $('qHint').textContent='这个字读第几声？';
+    $('qBody').className='cnqBody toneRow';
+    $('qBody').innerHTML=this.marks.map(o=>`<button class="cnqTone" data-t="${o.t}"><span class="tmark">${o.m}</span><span class="tname">${o.n}</span></button>`).join('');
+    $('qBody').querySelectorAll('.cnqTone').forEach(b=>b.onclick=()=>TONE.answer(+b.dataset.t,b));
+    playPy(CNQ.cur.code);
+  },
+  answer(t,el){
+    if(CNQ.busy) return;
+    if(t===CNQ.cur.tone){
+      CNQ.busy=true; beep('good'); cnqHit(el);
+      const py=$('qPy'); if(py) py.textContent=CNQ.cur.py;   // 揭示带调拼音
+      playPy(CNQ.cur.code); cnqGood(); cnqHUD();
+      if(CNQ.cleared>=CNQ.goal){ setTimeout(()=>this.win(),850); return; }
+      setTimeout(()=>this.next(),850);
+    } else {
+      cnqMiss(el);
+      if(CNQ.hearts<=0){ CNQ.busy=true; setTimeout(()=>this.lose(),320); }
+    }
+  },
+  win(){ cnqWin('toneStage', ()=>TONE.start(), '越往后越快，注意听辨平翘舌、前后鼻！'); },
+  lose(){ cnqLose(()=>TONE.start()); },
+};
 
 const PG = {
   start(){ S.subject='cn'; this.goWorlds(); },
