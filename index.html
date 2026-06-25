@@ -752,9 +752,7 @@ const G = {
   tap(i){
     if(S.busy) return;
     const t=S.board[i]; if(!t||t.done) return;
-    if(S.sel===null){ S.sel=i; this.renderBoard();
-      if(S.subject==='cn'){ const t2=S.board[i]; if(t2 && t2.k==='a' && t2.code) playPy(t2.code); }
-      return; }
+    if(S.sel===null){ S.sel=i; this.renderBoard(); return; }   // 点方块不发声，配对正确后才读音
     if(S.sel===i){ S.sel=null; this.renderBoard(); return; }
     const a=S.board[S.sel], b=t;
     if(a.k===b.k){ S.sel=i; this.renderBoard(); return; }
