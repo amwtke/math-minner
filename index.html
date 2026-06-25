@@ -487,54 +487,25 @@ function _unlockAudio(){
   try{ const a=new Audio(_SILENT_WAV); a.volume=0; a.play().catch(()=>{}); }catch(e){}
   // 兜底：真正的发音都从点击回调(success/tap)内触发，本身就在手势链里。
 }
-// 语速档位（慢/正常/快）。davinfifield 音频尾部静音很长且长短不一(可达 1s+)，
-// 故词语连读不等整段播完：到「话音时长」就暂停本字、起下一个字。
-//   rate=倍速，gap=字间额外停顿，trim=剪掉的尾部ms，cap=单字最长占用(砍掉超长静音)，
-//   min=单字最短占用(短音节别切狠)。末字始终完整播出。默认「快」。
+// 语速档位（慢/正常/快）：rate=播放倍速，gap=多字词音节间额外停顿(ms)。默认「快」。
 const VOICE_SPEEDS=[
-  {name:'慢',  rate:0.85, gap:140, trim:60,  cap:1000, min:500},
-  {name:'正常',rate:1.05, gap:30,  trim:220, cap:600,  min:360},
-  {name:'快',  rate:1.25, gap:0,   trim:320, cap:340,  min:250},
+  {name:'慢',  rate:0.8, gap:240},
+  {name:'正常',rate:1.0, gap:90},
+  {name:'快',  rate:1.2, gap:25},
 ];
 function _voiceIdx(){ return (typeof S!=='undefined' && S && typeof S.voiceSpeed==='number') ? S.voiceSpeed : 2; }
-// 同一时刻只允许一段发音：每次播放领一个 session 号，旧 session 的定时回调一律作废，
-// 避免「上一次点击」的暂停/接续逻辑误伤「这一次点击」正在播的(共享缓存的)音频→没声音。
-let _pySession=0, _pyNow=null;
 function playPy(codes){
   const list = Array.isArray(codes) ? codes : [codes];
   const sp = VOICE_SPEEDS[_voiceIdx()] || VOICE_SPEEDS[2];
-  const sess = ++_pySession;
-  if(_pyNow){ try{ _pyNow.pause(); }catch(e){} _pyNow=null; }   // 打断上一段声音
-  const alive = ()=> sess===_pySession;
-  let i=0, prev=null;
+  let i=0;
   const step=()=>{
-    if(!alive()) return;
-    if(prev){ try{ prev.pause(); }catch(e){} prev=null; }   // 结束上一个字，避免拖尾/重叠
     if(i>=list.length) return;
     const code=list[i++]; if(!code){ return step(); }
-    const last = (i>=list.length);
     let a=_pyPool.get(code);
     if(!a){ a=new Audio('/audio/pinyin/'+code+'.mp3'); _pyPool.set(code,a); }
     a.currentTime=0;
     try{ a.playbackRate = sp.rate; }catch(e){}
-    _pyNow=a;
-    if(!last){
-      prev=a;                                               // 非末字：到点暂停，接下一个
-      let advanced=false;
-      const advance=()=>{ if(advanced||!alive()) return; advanced=true; clearTimeout(a._t); setTimeout(step, sp.gap); };
-      const schedule=()=>{
-        if(!alive()) return;
-        const dur=a.duration;
-        if(!isFinite(dur) || dur<=0) return;                // 拿不到时长则只靠 onended 兜底
-        const adj=dur*1000/sp.rate;                         // 倍速后的整段时长
-        let ms=Math.min(adj - sp.trim, sp.cap);             // 剪尾部静音 + 绝对上限砍超长静音
-        ms=Math.max(ms, Math.min(adj, sp.min));             // 但短音节至少播到位
-        a._t=setTimeout(advance, ms);
-      };
-      a.onended=advance;
-      if(isFinite(a.duration) && a.duration>0) schedule();  // 缓存过的音频已知时长
-      else a.onloadedmetadata=schedule;
-    }
+    a.onended=()=>setTimeout(step, sp.gap);   // 多字词顺序播，间隔随语速档位
     a.play().catch(()=>{});
   };
   step();
