@@ -1217,6 +1217,10 @@ function renderModes(subj){
       <div class="world" style="background:linear-gradient(135deg,var(--gold),rgba(0,0,0,.25))" onclick="TONE.start()">
         <div class="wicon" style="background:var(--gold)"></div>
         <div><h3>🎵 声调小游戏</h3><p>这个字读第几声？听音辨调</p></div>
+      </div>
+      <div class="world" style="background:linear-gradient(135deg,var(--pur),rgba(0,0,0,.25))" onclick="PM.start()">
+        <div class="wicon" style="background:var(--pur)"></div>
+        <div><h3>🧩 拼音拼读</h3><p>选声母+韵母+声调，拼出这个字</p></div>
       </div>`;
   } else {
     list.innerHTML = `
@@ -1238,6 +1242,18 @@ function _toneOf(code){ const m=/([1-5])$/.exec(code||''); return m?+m[1]:0; }  
 // 去声调号但保留 ü 的两点：分解后删 4 个声调组合符（U+0300/01/04/0C），保留分音符 U+0308
 function _toneless(py){ const M=new Set([0x300,0x301,0x304,0x30c]);   // ˋ ˊ ˉ ˇ（保留 ü 的两点 0x308）
   return Array.from(py.normalize('NFD')).filter(c=>!M.has(c.codePointAt(0))).join('').normalize('NFC'); }
+// 拼读预览：声母+韵母拼成书写形（jqx 后 ü 去点）+ 按标调规则把声调标到主元音
+function pmWritten(sm,ym){ let y=ym; if(/[jqx]/.test(sm)) y=y.replace('ü','u'); return sm+y; }
+function pmToned(sm,ym,tone){
+  const w=pmWritten(sm,ym); if(!tone) return w;
+  const C=String.fromCharCode, mk={1:C(0x304),2:C(0x301),3:C(0x30c),4:C(0x300)};  // 组合声调符 ˉ ˊ ˇ ˋ
+  let idx=-1;
+  if(/iu/.test(w)) idx=w.lastIndexOf('u');         // iu 标在 u
+  else if(/ui/.test(w)) idx=w.lastIndexOf('i');    // ui 标在 i
+  else { for(const v of ['a','o','e','i','u','ü']){ const p=w.indexOf(v); if(p>=0){ idx=p; break; } } }
+  if(idx<0) return w;
+  return (w.slice(0,idx+1)+mk[tone]+w.slice(idx+1)).normalize('NFC');
+}
 function cnqMaxHearts(){ let h=S.tool>=2?6:5; if(S.tool>=4) h=7; return h; }
 function cnqHUD(){
   let h=''; for(let i=0;i<CNQ.maxHearts;i++) h+=`<span class="heart ${i<CNQ.hearts?'':'off'}">♥</span>`;
@@ -1367,6 +1383,84 @@ const TONE = {
   },
   win(){ cnqWin('toneStage', ()=>TONE.start(), '越往后越快，注意听辨平翘舌、前后鼻！'); },
   lose(){ cnqLose(()=>TONE.start()); },
+};
+
+const PM = {                                    // 🧩 拼音拼读：声母+韵母+声调 拼出目标字
+  tones:[{m:'ˉ',t:1},{m:'ˊ',t:2},{m:'ˇ',t:3},{m:'ˋ',t:4}],
+  start(){
+    S.subject='cn'; const stage=S.spellStage;
+    const maxWorld=Math.min(2+stage,6);          // 按课本进度逐步解锁更复杂的韵母
+    const ok=v=>v&&v.sm&&!v.whole&&_toneOf(v.code[0])>=1;   // 需有声母、非整体认读、非轻声(声调1-4)
+    let pool=[];
+    PINYIN_WORLDS.filter(w=>w.id>=2&&w.id<=maxWorld).forEach(w=>w.words.forEach(h=>{
+      if(h.length===1&&ok(PINYIN_DATA[h])) pool.push(h);
+    }));
+    if(pool.length<6) pool=_cnSingles().filter(h=>ok(PINYIN_DATA[h]));
+    CNQ={kind:'pm', hearts:cnqMaxHearts(), maxHearts:cnqMaxHearts(), score:0, cleared:0, combo:0,
+      goal:5+stage, depth:Math.min(1+Math.floor(stage/2),4), busy:false, pool,
+      allSm:[...new Set(pool.map(h=>PINYIN_DATA[h].sm))],
+      allYm:[...new Set(pool.map(h=>PINYIN_DATA[h].ym))],
+      optN:Math.min(3+Math.floor(stage/2),6), cur:null, chosen:{sm:null,ym:null,tone:null}};
+    $('qTitle').textContent=`🧩 拼音拼读 · 第${stage+1}关`;
+    show('cnq'); this.next();
+  },
+  next(){
+    CNQ.busy=false; CNQ.chosen={sm:null,ym:null,tone:null};
+    const target=CNQ.pool[Math.floor(Math.random()*CNQ.pool.length)], d=PINYIN_DATA[target];
+    CNQ.cur={target, sm:d.sm, ym:d.ym, tone:_toneOf(d.code[0]), code:d.code, py:d.py,
+      smOpts:this.opts(d.sm,CNQ.allSm), ymOpts:this.opts(d.ym,CNQ.allYm)};
+    cnqHUD();
+    $('qPrompt').innerHTML=`<div class="cnqBig">${target}</div>
+      <button class="cnqSpeak" id="qSpeak">🔊 听发音</button>
+      <div class="pmAssembled" id="pmAsm">？</div>`;
+    $('qSpeak').onclick=()=>{ if(CNQ.cur) playPy(CNQ.cur.code); };
+    $('qHint').textContent='选 声母 + 韵母 + 声调，拼出这个字';
+    this.render(); playPy(CNQ.cur.code);
+  },
+  opts(correct,all){ const o=shuffle(all.filter(v=>v!==correct)); return shuffle([correct,...o.slice(0,CNQ.optN-1)]); },
+  render(){
+    const c=CNQ.cur, ch=CNQ.chosen;
+    $('qBody').className='cnqBody';
+    $('qBody').innerHTML =
+      this.row('sm','声母',c.smOpts.map(s=>({v:s,d:s})),ch.sm)+
+      this.row('ym','韵母',c.ymOpts.map(s=>({v:s,d:s})),ch.ym)+
+      this.row('tone','声调',this.tones.map(t=>({v:t.t,d:t.m})),ch.tone);
+    $('qBody').querySelectorAll('.pmBtn').forEach(b=>b.onclick=()=>PM.pickOpt(b.dataset.row,b.dataset.val));
+    this.preview();
+  },
+  row(row,label,opts,chosen){
+    return `<div class="pmRow"><span class="pmLab">${label}</span>`+
+      opts.map(o=>`<button class="pmBtn${String(chosen)===String(o.v)?' on':''}" data-row="${row}" data-val="${o.v}">${o.d}</button>`).join('')+`</div>`;
+  },
+  preview(){
+    const ch=CNQ.chosen, el=$('pmAsm'); if(!el) return;
+    el.textContent = (ch.sm==null&&ch.ym==null&&ch.tone==null) ? '？'
+      : (pmToned(ch.sm||'', ch.ym||'', ch.tone||0) || '…');
+  },
+  pickOpt(row,val){
+    if(CNQ.busy) return;
+    CNQ.chosen[row] = (row==='tone')?+val:val;
+    this.render();
+    const ch=CNQ.chosen;
+    if(ch.sm!=null && ch.ym!=null && ch.tone!=null) this.check();
+  },
+  check(){
+    const c=CNQ.cur, ch=CNQ.chosen;
+    if(ch.sm===c.sm && ch.ym===c.ym && ch.tone===c.tone){
+      CNQ.busy=true; beep('good');
+      $('pmAsm').textContent=c.py; playPy(c.code); cnqGood(); cnqHUD();
+      $('qBody').querySelectorAll('.pmBtn.on').forEach(b=>b.classList.add('match'));
+      if(CNQ.cleared>=CNQ.goal){ setTimeout(()=>this.win(),950); return; }
+      setTimeout(()=>this.next(),950);
+    } else {
+      beep('bad'); CNQ.combo=0; CNQ.hearts--; CNQ.busy=true; cnqHUD();
+      $('qBody').querySelectorAll('.pmBtn.on').forEach(b=>b.classList.add('wrong'));
+      setTimeout(()=>{ CNQ.chosen={sm:null,ym:null,tone:null}; CNQ.busy=false;
+        if(CNQ.hearts<=0) this.lose(); else this.render(); },560);
+    }
+  },
+  win(){ cnqWin('spellStage', ()=>PM.start(), '下一关解锁更多声母韵母，拼读更难的音节！'); },
+  lose(){ cnqLose(()=>PM.start()); },
 };
 
 const PG = {

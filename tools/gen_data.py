@@ -27,6 +27,8 @@ _INI_S2 = set("b p m f d t n l".split())          # 声母·前段
 _INI_S3 = set("g k h j q x".split())              # 声母·中段
 _INI_S4 = set("z c s zh ch sh r".split())         # 平翘舌
 _FINAL_SINGLE = {"a", "o", "e", "i", "u", "v", "er", "ê"}
+# 16 个整体认读音节（只整块认读、不拆声母+韵母拼读）
+WHOLE_SYLLABLES = set("zhi chi shi ri zi ci si yi wu yu ye yue yin yun yuan ying".split())
 
 
 def initial_stage(initial):
@@ -141,7 +143,15 @@ def build():
         if any(len(s) > 1 for s in ms) and hz not in seen_multi:
             poly.append(f"{hz}\t{ms}")
             seen_multi.add(hz)
-        data[hz] = {"py": disp(hz), "code": codes(hz)}
+        entry = {"py": disp(hz), "code": codes(hz)}
+        if len(hz) == 1:                       # 单字补声母/韵母/整体认读标记，供「拼音拼读」用
+            entry["sm"] = part(hz, Style.INITIALS)
+            # 韵母用「书写形」(strict=False)：水→ui 牛→iu 春→un；且自带去点规则
+            # （jqx+ü→u 如 去=qu；n/l+ü 保留两点 如 绿=lü、女=nü），正是课本拼读所教
+            entry["ym"] = pinyin(hz, style=Style.FINALS, strict=False)[0][0].replace("v", "ü")
+            if pinyin(hz, style=Style.NORMAL)[0][0] in WHOLE_SYLLABLES:
+                entry["whole"] = True          # 整体认读只整块认读、不进拼读
+        data[hz] = entry
         return True
 
     # 单字 -> 自动归世界
