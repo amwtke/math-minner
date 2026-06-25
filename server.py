@@ -159,11 +159,20 @@ class Handler(BaseHTTPRequestHandler):
         with self.server.audio_lock:                      # 串行，避免多设备并发重复下载
             if os.path.exists(self.server.ready_sentinel):
                 return self._send_json(200, {"ok": True, "have": self._audio_have()})
+            data, errors = None, []
+            for url in AUDIO_ZIP_URLS:                     # 镜像优先,逐个尝试,任一成功即停
+                try:
+                    data = _download_zip(url)
+                    break
+                except Exception as e:                     # 记下失败源,全挂时一并报给前端
+                    host = url.split("//", 2)[-1].split("/", 1)[0]
+                    errors.append("%s(%s)" % (host, e))
+            if data is None:                               # 全部源都失败：不写哨兵，可重试
+                return self._send_json(502, {"ok": False, "error": "下载失败：" + "；".join(errors)})
             try:
-                data = _download_zip(AUDIO_ZIP_URL)
                 n = extract_pinyin_mp3(data, self.server.audio_dir)
-            except Exception as e:                         # 网络/解压失败：不写哨兵，可重试
-                return self._send_json(502, {"ok": False, "error": "下载失败：" + str(e)})
+            except Exception as e:                         # 解压失败：不写哨兵，可重试
+                return self._send_json(502, {"ok": False, "error": "解压失败：" + str(e)})
             if n == 0:                                     # 解出 0 个 mp3：拒绝写哨兵，可重试
                 return self._send_json(502, {"ok": False, "error": "下载内容为空，请重试"})
             with open(self.server.ready_sentinel, "w") as f:
@@ -246,8 +255,15 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
-AUDIO_ZIP_URL = ("https://codeload.github.com/davinfifield/"
-                 "mp3-chinese-pinyin-sound/zip/refs/heads/master")
+# 发音整包(约 30MB)来源,按顺序尝试:先国内可达的镜像,失败再退回 GitHub 直连。
+# GitHub 直连在国内常被限速到几十 KB/s,30MB 跑不完就会超时;镜像通常快得多。
+# 镜像偶尔会挂,所以保留 GitHub 原址兜底——任一成功即停。
+_GH_ZIP = ("codeload.github.com/davinfifield/"
+           "mp3-chinese-pinyin-sound/zip/refs/heads/master")
+AUDIO_ZIP_URLS = (
+    "https://gh-proxy.com/https://" + _GH_ZIP,   # 镜像优先
+    "https://" + _GH_ZIP,                        # GitHub 直连兜底
+)
 
 
 def extract_pinyin_mp3(zip_bytes, dest_dir):
@@ -272,7 +288,7 @@ def extract_pinyin_mp3(zip_bytes, dest_dir):
     return n
 
 
-def _download_zip(url, timeout=120):
+def _download_zip(url, timeout=300):   # socket 超时:容忍慢速/偶发卡顿,不限制总时长
     req = urllib.request.Request(url, headers={"User-Agent": "MathMiner/1.0"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
