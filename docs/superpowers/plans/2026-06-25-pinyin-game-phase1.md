@@ -1019,8 +1019,9 @@ git commit -m "feat(ui): 运行时发音——playPy + iOS 解锁 + 首次进语
 
 **重新生成字词数据**（仅在改了 `tools/gen_data.py` 词库后）：
 
-    pip install pypinyin        # 仅开发机
-    python3 tools/gen_data.py   # 重新生成 pinyin-data.js
+    .venv-tools/bin/python3 tools/gen_data.py   # 重新生成 pinyin-data.js
+
+（`pypinyin` 装在仓库根 `.venv-tools/` venv，不入 git；若不存在需一次性 `python3 -m venv .venv-tools && .venv-tools/bin/pip install -i https://pypi.tuna.tsinghua.edu.cn/simple pypinyin`）
 ```
 
 - [ ] **Step 2: 全量回归测试**

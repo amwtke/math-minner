@@ -48,8 +48,12 @@
 
 **重新生成字词数据**（仅在改了 `tools/gen_data.py` 词库后）：
 
-    pip install pypinyin        # 仅开发机
-    python3 tools/gen_data.py   # 重新生成 pinyin-data.js
+    .venv-tools/bin/python3 tools/gen_data.py   # 重新生成 pinyin-data.js
+
+`pypinyin` 装在仓库根的 `.venv-tools/` 虚拟环境里（仅开发机用、不入 git）。若该环境不存在需一次性重建：
+
+    python3 -m venv .venv-tools
+    .venv-tools/bin/pip install -i https://pypi.tuna.tsinghua.edu.cn/simple pypinyin
 
 ## 测试
 
