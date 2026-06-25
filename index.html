@@ -373,6 +373,7 @@
 <div class="toast" id="toast"></div>
 <div class="flash" id="flash"></div>
 
+<script src="/pinyin-data.js"></script>
 <script>
 /* ===================== DATA ===================== */
 const SKINS = {
@@ -429,7 +430,9 @@ function freshState(){
     skinsOwned:['steve'], skin:'steve',
     world:1, hearts:5, maxHearts:5, stars:0, combo:0,
     stage:{1:0,2:0,3:0,4:0}, curStage:0, diff:null, totalCleared:0, crushStage:0,
-    board:[], sel:null, skillUses:{}, shield:false, busy:false };
+    board:[], sel:null, skillUses:{}, shield:false, busy:false,
+    subject:'math',
+    pyMatchStage:{1:0,2:0,3:0} };
 }
 
 /* ===================== HELPERS ===================== */
@@ -452,7 +455,7 @@ function avatarHTML(skinId,small){
 
 /* ===================== 多人登录 ===================== */
 const USER_KEY='mathminer_user';
-const SAVE_FIELDS=['res','tool','skinsOwned','skin','stage','crushStage','stars','totalCleared'];
+const SAVE_FIELDS=['res','tool','skinsOwned','skin','stage','crushStage','stars','totalCleared','pyMatchStage'];
 function escapeHTML(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 const Auth = {
@@ -507,6 +510,7 @@ function applySave(d){
   SAVE_FIELDS.forEach(k=>{ if(d[k]!==undefined && d[k]!==null) S[k]=d[k]; });
   // 旧档/脏档可能缺 stage 键或带无效皮肤,合并补默认防止「第NaN关」与崩溃
   S.stage = Object.assign({1:0,2:0,3:0,4:0}, S.stage||{});
+  S.pyMatchStage = Object.assign({1:0,2:0,3:0}, S.pyMatchStage||{});
   if(!SKINS[S.skin]) S.skin='steve';
 }
 let _saveInflight=false, _saveDirty=false;
