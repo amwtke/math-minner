@@ -494,7 +494,7 @@ function _unlockAudio(){
 const VOICE_SPEEDS=[
   {name:'慢',  rate:0.85, gap:140, trim:60,  cap:1000, min:500},
   {name:'正常',rate:1.05, gap:30,  trim:220, cap:600,  min:360},
-  {name:'快',  rate:1.2,  gap:0,   trim:280, cap:420,  min:300},
+  {name:'快',  rate:1.25, gap:0,   trim:320, cap:340,  min:250},
 ];
 function _voiceIdx(){ return (typeof S!=='undefined' && S && typeof S.voiceSpeed==='number') ? S.voiceSpeed : 2; }
 function playPy(codes){
