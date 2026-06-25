@@ -9,3 +9,12 @@ __pycache__/
 # 玩家存档(运行时生成,不入库;保留 data/.gitkeep 占位)
 data/*.json
 data/*.tmp
+
+# 发音音频(运行时由服务器拉取,不入库)
+audio/
+
+# 构建期 pypinyin 虚拟环境(仅生成 pinyin-data.js 时用,不入库)
+.venv-tools/
+
+# subagent-driven 执行进度 ledger(本地 scratch)
+.superpowers/

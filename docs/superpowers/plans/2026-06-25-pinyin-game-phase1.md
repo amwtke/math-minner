@@ -29,6 +29,8 @@
 - **Python 部分（`tools/gen_data.py` 的纯函数、`server.py` 的音频端点与解压逻辑）走真 TDD**：先写失败测试 → 跑红 → 实现 → 跑绿。
 - **前端部分（`index.html`）走「脚本化手动验收」**：每个前端任务末尾给出明确的「打开哪个页面、点什么、应看到什么」清单，而不是含糊的「测试一下」。不引入 JS 测试框架（与项目零依赖/无构建一致）。
 
+**测试运行器**：本仓库用标准库 `unittest`（**未装 pytest**）。跑全部：`python3 test_server.py`、`cd tools && python3 test_gen_data.py`；跑单个：`python3 -m unittest test_server.ExtractAudioTest -v`。**构建期 pypinyin** 装在仓库根的 `.venv-tools/`（已建好，经清华镜像安装；`files.pythonhosted.org` 在本机 TLS 不通，故用国内镜像）；运行 `gen_data.py` 用 `.venv-tools/bin/python3`。`unittest` 测试用系统 `python3` 即可（纯标准库）。
+
 ## File Structure
 
 | 文件 | 责任 | 本期动作 |
@@ -60,6 +62,8 @@
 ```gitignore
 # 运行时由服务器拉取的发音音频，不入 git
 audio/
+# 构建期 pypinyin 的虚拟环境，不入 git
+.venv-tools/
 ```
 
 - [ ] **Step 2: 建 tools 目录占位**
@@ -138,7 +142,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `cd tools && python3 -m pytest test_gen_data.py -v` （或 `python3 test_gen_data.py`）
+Run: `cd tools && python3 -m unittest test_gen_data -v` （或 `python3 test_gen_data.py`）
 Expected: FAIL —— `ImportError`/`ModuleNotFoundError: gen_data` 或 `normalize_code` 未定义。
 
 - [ ] **Step 3: 写 `tools/gen_data.py`（先让 normalize_code 通过）**
@@ -233,20 +237,22 @@ if __name__ == "__main__":
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `cd tools && python3 -m pytest test_gen_data.py -v`
+Run: `cd tools && python3 -m unittest test_gen_data -v`
 Expected: PASS（全部 6 个用例绿）。
 
 - [ ] **Step 5: 真跑生成器，核对 pypinyin 实际输出**
 
 ```bash
-pip install pypinyin          # 仅开发机
-cd tools && python3 gen_data.py
+# venv 已建好并装了 pypinyin（清华镜像）。如需重建：
+#   python3 -m venv .venv-tools
+#   .venv-tools/bin/pip install -i https://pypi.tuna.tsinghua.edu.cn/simple pypinyin
+.venv-tools/bin/python3 tools/gen_data.py
 ```
 Expected: 打印「已写 …/pinyin-data.js：NN 字/词，3 世界…」。
-然后人工抽查产物，确认 ü 字映射正确：
+然后抽查产物，确认 ü 字映射正确（pypinyin 输出 `绿`→`lv4`、`女`→`nv3`，归一化后应为 `luu4`/`nuu3`）：
 
-Run: `grep -o '"绿":{[^}]*}' ../pinyin-data.js`
-Expected: 形如 `"绿":{"py":"lǜ","code":["luu4"]}`（**`luu4` 而非 `lv4`**）。若不是，说明 pypinyin 版本 ü 输出不同——`normalize_code` 已同时兜 `ü`/`v`，但仍要确认产物里是 `luu`。
+Run: `grep -o '"绿":{[^}]*}' pinyin-data.js`
+Expected: 形如 `"绿":{"py":"lǜ","code":["luu4"]}`（**`luu4`**，已实测 pypinyin 0.55 输出 `lv4`，`normalize_code` 转 `luu4`）。
 
 - [ ] **Step 6: Commit**
 
@@ -289,7 +295,7 @@ git commit -m "feat: gen_data.py 构建期生成 pinyin-data.js（pypinyin，ü-
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `python3 -m pytest test_server.py -k mp3 -v`
+Run: `python3 -m unittest test_server.ServerHTTPTests.test_serves_mp3_with_audio_mime -v`
 Expected: FAIL —— 状态码 404（扩展名未放行）。
 
 - [ ] **Step 3: 改 `server.py` 两处**
@@ -316,7 +322,7 @@ ALLOWED_STATIC_EXT = {
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `python3 -m pytest test_server.py -k mp3 -v`
+Run: `python3 -m unittest test_server.ServerHTTPTests.test_serves_mp3_with_audio_mime -v`
 Expected: PASS。
 
 - [ ] **Step 5: 回归全部服务器测试**
@@ -385,7 +391,7 @@ class ExtractAudioTest(unittest.TestCase):
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `python3 -m pytest test_server.py -k Extract -v`
+Run: `python3 -m unittest test_server.ExtractAudioTest -v`
 Expected: FAIL —— `ImportError: cannot import name 'extract_pinyin_mp3'`。
 
 - [ ] **Step 3: 在 `server.py` 顶部加导入与解压/下载函数**
@@ -427,7 +433,7 @@ def _download_zip(url, timeout=120):
 
 - [ ] **Step 4: 跑解压测试确认通过**
 
-Run: `python3 -m pytest test_server.py -k Extract -v`
+Run: `python3 -m unittest test_server.ExtractAudioTest -v`
 Expected: PASS（2 用例绿）。
 
 - [ ] **Step 5: `make_server` 挂上 audio_dir / audio_lock**
@@ -498,7 +504,7 @@ Expected: PASS（2 用例绿）。
         self.assertEqual(j["have"], 0)
 ```
 
-Run: `python3 -m pytest test_server.py -k "audio or Extract or mp3" -v`
+Run: `python3 -m unittest test_server.ExtractAudioTest test_server.ServerHTTPTests.test_audio_status_not_ready_initially test_server.ServerHTTPTests.test_serves_mp3_with_audio_mime -v`
 Expected: PASS。
 
 - [ ] **Step 8: 回归全部服务器测试 + 真实下载冒烟（需联网）**
@@ -1019,7 +1025,7 @@ git commit -m "feat(ui): 运行时发音——playPy + iOS 解锁 + 首次进语
 
 - [ ] **Step 2: 全量回归测试**
 
-Run: `python3 test_server.py && (cd tools && python3 -m pytest test_gen_data.py -v)`
+Run: `python3 test_server.py && (cd tools && python3 -m unittest test_gen_data -v)`
 Expected: 全绿。
 
 - [ ] **Step 3: 端到端冒烟清单**
