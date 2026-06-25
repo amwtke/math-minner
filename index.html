@@ -103,6 +103,8 @@
   .tile.q{background:linear-gradient(180deg,var(--grass) 0 32%,var(--dirt) 32%);}
   .tile.a{background:var(--stone);}
   .tile .val{font-size:17px;}
+  .tile.cn .val{font-family:var(--cn);font-size:20px;font-weight:700;}
+  .tile.cn{justify-content:center;}
   .tile.sel{outline:4px solid var(--gold);outline-offset:-4px;transform:scale(1.04);}
   .tile.wrong{animation:shake .3s; outline:4px solid var(--red);outline-offset:-4px;}
   .tile.gone{visibility:hidden;}
@@ -303,7 +305,7 @@
     <div class="board" id="board"></div>
     <div class="skillBar" id="skillBar"></div>
     <div class="controls">
-      <button class="btn gray" onclick="G.goWorlds()">🏠 地图</button>
+      <button class="btn gray" onclick="(S.subject==='cn'?PG:G).goWorlds()">🏠 地图</button>
       <button class="btn cyan" onclick="G.openCraft()">🔨 融合</button>
       <button class="btn gray" onclick="G.openSkin()">🎨 皮肤</button>
     </div>
@@ -398,7 +400,13 @@ const WORLDS = [
   {id:4,name:'钻石层 DIAMOND',icon:'var(--cyan)',desc:'两位数加减混合',op:'mix',min:10,max:30,step:12,cap:99,pairs:6},
 ];
 function diffFor(world, stage){
-  const w=WORLDS[world-1];
+  const cn = S.subject==='cn';
+  const list = cn ? PINYIN_WORLDS : WORLDS;
+  const w = list[world-1];
+  if(cn){
+    const pairs = Math.min(4 + Math.floor(stage/1), 8);   // 4→8 对随关卡上升
+    return {pairs, dots:false, cn:true, dl:Math.min(4,stage)};
+  }
   const maxN = Math.min(w.max + stage*w.step, w.cap);
   const pairs = Math.min(w.pairs + Math.floor(stage/2), 8);
   const dots = w.op==='add' && maxN<=20;
@@ -580,6 +588,7 @@ const G = {
 
   buildBoard(){
     const d = S.diff;
+    if(S.subject==='cn'){ return this.buildPinyinBoard(d); }
     const used = new Set(); const pairs=[];
     let guard=0;
     while(pairs.length < d.pairs && guard++ < 1500){
@@ -606,18 +615,34 @@ const G = {
     $('worldName').innerHTML = `${w.name} · 第${S.curStage+1}关 · 难度 ${bar}`;
   },
 
+  buildPinyinBoard(d){
+    const w = PINYIN_WORLDS[S.world-1];
+    const pool = shuffle(w.words.slice()).slice(0, d.pairs);
+    const pairs = pool.map(hz=>({txt:hz, ans:(PINYIN_DATA[hz]||{}).py||hz, code:(PINYIN_DATA[hz]||{}).code||[]}));
+    let tiles=[];
+    pairs.forEach((p,i)=>{
+      tiles.push({k:'q',pid:i,txt:p.txt,done:false});
+      tiles.push({k:'a',pid:i,ans:p.ans,code:p.code,done:false});
+    });
+    shuffle(tiles);
+    S.board=tiles; S.sel=null; S.busy=false;
+    this.renderHUD(); this.renderBoard(); this.renderSkills();
+    $('worldName').innerHTML = `${w.name} · 第${S.curStage+1}关`;
+  },
+
   renderBoard(){
     const dots = S.diff && S.diff.dots;
+    const cnc = S.subject==='cn' ? ' cn' : '';
     $('board').innerHTML = S.board.map((t,i)=>{
       if(t.done) return `<div class="tile gone"></div>`;
       if(t.k==='q'){
-        return `<button class="tile q ${S.sel===i?'sel':''}" data-i="${i}">
-          <span class="tag pix">题目</span><span class="val">${t.txt}</span></button>`;
+        return `<button class="tile q${cnc} ${S.sel===i?'sel':''}" data-i="${i}">
+          <span class="tag pix">${S.subject==='cn'?'汉字':'题目'}</span><span class="val">${t.txt}</span></button>`;
       }else{
-        let d='';
-        if(dots){ let dd=''; for(let n=0;n<Math.min(t.ans,20);n++) dd+=`<span class="dot"></span>`; d=`<div class="dots">${dd}</div>`; }
-        return `<button class="tile a ${S.sel===i?'sel':''}" data-i="${i}">
-          <span class="tag pix">答案</span><span class="val">${t.ans}</span>${d}</button>`;
+        let dd='';
+        if(dots){ let s=''; for(let n=0;n<Math.min(t.ans,20);n++) s+=`<span class="dot"></span>`; dd=`<div class="dots">${s}</div>`; }
+        return `<button class="tile a${cnc} ${S.sel===i?'sel':''}" data-i="${i}">
+          <span class="tag pix">${S.subject==='cn'?'拼音':'答案'}</span><span class="val">${t.ans}</span>${dd}</button>`;
       }
     }).join('');
     $('board').querySelectorAll('.tile[data-i]').forEach(el=>{ el.onclick = ()=>G.tap(parseInt(el.dataset.i)); });
@@ -670,6 +695,10 @@ const G = {
 
   success(i,j){
     beep('good');
+    if(S.subject==='cn' && typeof playPy==='function'){
+      const codes=(S.board[i].code||S.board[j].code||[]);
+      playPy(codes);
+    }
     S.board[i].done=true; S.board[j].done=true; S.sel=null;
     S.combo++;
     const baseStar = S.tool>=1 ? 2 : 1;
@@ -777,8 +806,11 @@ const G = {
     this.renderHUD();
     $('winOv').classList.add('on');
   },
-  nextLevel(){ this.close('winOv'); S.stage[S.world]++; toast('🔥 难度提升！'); this.startWorld(S.world); },
-  retry(){ this.close('loseOv'); this.startWorld(S.world); },
+  nextLevel(){ this.close('winOv');
+    if(S.subject==='cn') S.pyMatchStage[S.world]=(S.pyMatchStage[S.world]||0)+1;
+    else S.stage[S.world]++;
+    toast('🔥 难度提升！'); (S.subject==='cn'?PG:this).startWorld(S.world); },
+  retry(){ this.close('loseOv'); (S.subject==='cn'?PG:this).startWorld(S.world); },
   lose(){ $('loseOv').classList.add('on'); },
 
   /* ---------- CRAFT ---------- */
@@ -1024,6 +1056,31 @@ function renderModes(subj){
       </div>`;
   }
 }
+
+const PG = {
+  start(){ S.subject='cn'; this.goWorlds(); },
+  goWorlds(){ this.renderWorlds(); show('worlds'); },
+  renderWorlds(){
+    G.renderRes('resBarW');
+    $('worldList').innerHTML = PINYIN_WORLDS.map(w=>{
+      const st=S.pyMatchStage[w.id]||0;
+      return `
+      <div class="world" style="background:linear-gradient(135deg,${w.icon},rgba(0,0,0,.25))" onclick="PG.startWorld(${w.id})">
+        <div class="wicon" style="background:${w.icon}"></div>
+        <div style="flex:1"><h3>${w.id}. ${w.name} <span style="font-size:12px;color:var(--gold)">第${st+1}关</span></h3>
+          <p>汉字配拼音 · 共 ${w.words.length} 字</p></div>
+      </div>`;
+    }).join('');
+  },
+  startWorld(id){
+    S.subject='cn'; S.world=id; S.curStage=S.pyMatchStage[id]||0;
+    S.diff=diffFor(id, S.curStage);
+    S.maxHearts = S.tool>=2?6:5; if(S.tool>=4) S.maxHearts=7;
+    S.hearts=S.maxHearts; S.skillUses={}; S.shield=false;
+    SKILLS.forEach(s=>{ if(S.tool>=s.tier) S.skillUses[s.key]=s.uses; });
+    G.buildBoard(); show('game');
+  },
+};
 
 function rand(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
 function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
