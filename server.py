@@ -164,6 +164,8 @@ class Handler(BaseHTTPRequestHandler):
                 n = extract_pinyin_mp3(data, self.server.audio_dir)
             except Exception as e:                         # 网络/解压失败：不写哨兵，可重试
                 return self._send_json(502, {"ok": False, "error": "下载失败：" + str(e)})
+            if n == 0:                                     # 解出 0 个 mp3：拒绝写哨兵，可重试
+                return self._send_json(502, {"ok": False, "error": "下载内容为空，请重试"})
             with open(self.server.ready_sentinel, "w") as f:
                 f.write("ok")
             return self._send_json(200, {"ok": True, "have": n})

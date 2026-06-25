@@ -349,7 +349,7 @@
     <div id="winBody"></div>
     <div class="closeRow">
       <button class="btn green" onclick="G.nextLevel()">再来一关 ▶</button>
-      <button class="btn gray" onclick="G.close('winOv');G.goWorlds()">地图</button>
+      <button class="btn gray" onclick="G.close('winOv');(S.subject==='cn'?PG:G).goWorlds()">地图</button>
     </div>
   </div>
 </div>
@@ -361,7 +361,7 @@
     <p class="tip" style="margin-top:0">别灰心，矿石和工具都还在！</p>
     <div class="closeRow">
       <button class="btn green" onclick="G.retry()">重 试 🔄</button>
-      <button class="btn gray" onclick="G.close('loseOv');G.goWorlds()">地图</button>
+      <button class="btn gray" onclick="G.close('loseOv');(S.subject==='cn'?PG:G).goWorlds()">地图</button>
     </div>
   </div>
 </div>
@@ -650,7 +650,7 @@ const G = {
   },
 
   buildPinyinBoard(d){
-    const w = PINYIN_WORLDS[S.world-1];
+    const w = PINYIN_WORLDS[S.world-1]; if(!w){ G.goSubjects(); return; }
     const pool = shuffle(w.words.slice()).slice(0, d.pairs);
     const pairs = pool.map(hz=>({txt:hz, ans:(PINYIN_DATA[hz]||{}).py||hz, code:(PINYIN_DATA[hz]||{}).code||[]}));
     let tiles=[];

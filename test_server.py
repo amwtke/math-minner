@@ -262,6 +262,29 @@ class ServerHTTPTests(unittest.TestCase):
         self.assertFalse(j["ready"])
         self.assertEqual(j["have"], 0)
 
+    def test_audio_fetch_empty_zip_returns_502_and_no_sentinel(self):
+        """当 zip 内无 mp3 时，应返回 502，且不写 .ready 哨兵。"""
+        # 构造一个只含 readme.txt 的合法 zip（无 mp3）
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            z.writestr("readme.txt", "no audio here")
+        empty_zip_bytes = buf.getvalue()
+
+        original_download = server._download_zip
+        server._download_zip = lambda url, timeout=120: empty_zip_bytes
+        try:
+            status, data = _post(self.port, "/api/audio/fetch", {})
+            j = json.loads(data)
+            self.assertEqual(status, 502, "空 zip 应返回 502")
+            self.assertFalse(j["ok"], "ok 应为 false")
+            # 哨兵文件不应存在
+            self.assertFalse(
+                os.path.exists(self.srv.ready_sentinel),
+                ".ready 哨兵不应被写入"
+            )
+        finally:
+            server._download_zip = original_download
+
 
 class ExtractAudioTest(unittest.TestCase):
     def _zip(self, names):
