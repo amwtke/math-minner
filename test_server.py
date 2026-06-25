@@ -222,6 +222,19 @@ class ServerHTTPTests(unittest.TestCase):
         status, _ = _get(self.port, "/api/save?name=../../evil")
         self.assertEqual(status, 400)
 
+    def test_serves_mp3_with_audio_mime(self):
+        audio_dir = os.path.join(self.web_dir, "audio", "pinyin")
+        os.makedirs(audio_dir, exist_ok=True)
+        with open(os.path.join(audio_dir, "ma3.mp3"), "wb") as f:
+            f.write(b"ID3fake")
+        c = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        c.request("GET", "/audio/pinyin/ma3.mp3")
+        r = c.getresponse(); body = r.read()
+        self.assertEqual(r.status, 200)
+        self.assertEqual(r.getheader("Content-Type"), "audio/mpeg")
+        self.assertEqual(body, b"ID3fake")
+        c.close()
+
     def test_players_robust_to_bad_files(self):
         os.makedirs(self.data_dir, exist_ok=True)
         with open(os.path.join(self.data_dir, "Good.json"), "w", encoding="utf-8") as f:

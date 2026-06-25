@@ -26,6 +26,7 @@ MAX_BODY = 512 * 1024
 ALLOWED_STATIC_EXT = {
     ".html", ".css", ".js", ".woff2", ".woff", ".ttf",
     ".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".ico",
+    ".m4a", ".mp3", ".aac", ".ogg", ".wav",   # 离线发音音频
 }
 
 
@@ -223,6 +224,11 @@ def _content_type(path):
         (".png", "image/png"),
         (".svg", "image/svg+xml"),
         (".ico", "image/x-icon"),
+        (".mp3", "audio/mpeg"),
+        (".m4a", "audio/mp4"),
+        (".aac", "audio/aac"),
+        (".ogg", "audio/ogg"),
+        (".wav", "audio/wav"),
     ):
         if path.endswith(ext):
             return ctype
