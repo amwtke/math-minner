@@ -497,11 +497,18 @@ const VOICE_SPEEDS=[
   {name:'快',  rate:1.25, gap:0,   trim:320, cap:340,  min:250},
 ];
 function _voiceIdx(){ return (typeof S!=='undefined' && S && typeof S.voiceSpeed==='number') ? S.voiceSpeed : 2; }
+// 同一时刻只允许一段发音：每次播放领一个 session 号，旧 session 的定时回调一律作废，
+// 避免「上一次点击」的暂停/接续逻辑误伤「这一次点击」正在播的(共享缓存的)音频→没声音。
+let _pySession=0, _pyNow=null;
 function playPy(codes){
   const list = Array.isArray(codes) ? codes : [codes];
   const sp = VOICE_SPEEDS[_voiceIdx()] || VOICE_SPEEDS[2];
+  const sess = ++_pySession;
+  if(_pyNow){ try{ _pyNow.pause(); }catch(e){} _pyNow=null; }   // 打断上一段声音
+  const alive = ()=> sess===_pySession;
   let i=0, prev=null;
   const step=()=>{
+    if(!alive()) return;
     if(prev){ try{ prev.pause(); }catch(e){} prev=null; }   // 结束上一个字，避免拖尾/重叠
     if(i>=list.length) return;
     const code=list[i++]; if(!code){ return step(); }
@@ -510,11 +517,13 @@ function playPy(codes){
     if(!a){ a=new Audio('/audio/pinyin/'+code+'.mp3'); _pyPool.set(code,a); }
     a.currentTime=0;
     try{ a.playbackRate = sp.rate; }catch(e){}
+    _pyNow=a;
     if(!last){
       prev=a;                                               // 非末字：到点暂停，接下一个
       let advanced=false;
-      const advance=()=>{ if(advanced) return; advanced=true; clearTimeout(a._t); setTimeout(step, sp.gap); };
+      const advance=()=>{ if(advanced||!alive()) return; advanced=true; clearTimeout(a._t); setTimeout(step, sp.gap); };
       const schedule=()=>{
+        if(!alive()) return;
         const dur=a.duration;
         if(!isFinite(dur) || dur<=0) return;                // 拿不到时长则只靠 onended 兜底
         const adj=dur*1000/sp.rate;                         // 倍速后的整段时长
