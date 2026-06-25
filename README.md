@@ -40,9 +40,21 @@
 - 服务器对**同一 WiFi 下所有设备开放、无需密码**,谁都能新建/修改存档。家用没问题,**公共/办公 WiFi 慎用**。
 - 首次启动若系统弹出防火墙「是否允许传入连接」,请选**允许**,否则其他设备连不上。
 
+## 语文 · 拼音
+
+进标题后选「📖 语文拼音」即可玩「拼音配对挖矿」（汉字配拼音）。矿石/镐子/皮肤/星星与数学**共享**。
+
+**发音**：首次进入语文时，**服务器**会自动从公共领域音频库下载真人发音到 `audio/`（约 10–30MB，仅服务器联网一次；之后手机/平板始终离线播放）。服务器若没联网，会提示「继续（暂无发音）」，游戏仍可玩。`audio/` 不纳入 git。
+
+**重新生成字词数据**（仅在改了 `tools/gen_data.py` 词库后）：
+
+    pip install pypinyin        # 仅开发机
+    python3 tools/gen_data.py   # 重新生成 pinyin-data.js
+
 ## 测试
 
-    python3 test_server.py       # 服务器单元/集成测试(标准库 unittest)
+    python3 test_server.py                           # 服务器单元/集成测试(标准库 unittest)
+    cd tools && python3 -m unittest test_gen_data -v # 拼音数据生成测试
 
 ## 离线说明
 
@@ -52,10 +64,14 @@
 
 ## 文件结构
 
-    server.py        本地服务器(静态文件 + 存档 API,纯标准库)
-    index.html       游戏本体(登录屏 + 服务器存档 + 本地字体)
-    fonts/           像素字体
-    data/            玩家存档(运行时生成)
-    test_server.py   服务器测试
-    start.sh / .bat  一键启动脚本
-    math-miner.html  原始单文件版(保留,联网时可直接双击打开)
+    server.py          本地服务器(静态文件 + 存档 API + 音频下载,纯标准库)
+    index.html         游戏本体(登录屏 + 服务器存档 + 本地字体)
+    fonts/             像素字体
+    data/              玩家存档(运行时生成)
+    audio/             拼音真人发音 MP3(运行时按需下载,不纳入 git)
+    pinyin-data.js     拼音字词数据(构建期生成,纳入 git)
+    tools/gen_data.py  生成 pinyin-data.js 的脚本(需 pypinyin,仅开发机)
+    test_server.py     服务器测试
+    tools/test_gen_data.py  拼音数据生成测试
+    start.sh / .bat    一键启动脚本
+    math-miner.html    原始单文件版(保留,联网时可直接双击打开)
