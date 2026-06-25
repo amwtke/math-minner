@@ -7,6 +7,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "pinyin-data.js")
+DICT_OUT = os.path.join(HERE, "..", "pinyin-dict.js")
 
 
 def normalize_code(tone3):
@@ -132,6 +133,18 @@ def build():
     def part(hz, style):
         return pinyin(hz, style=style, strict=True)[0][0]
 
+    def make_entry(hz):
+        # 一个字/词的运行时数据：显示拼音 + 音频码（+ 单字的声母/韵母/整体认读标记）
+        entry = {"py": disp(hz), "code": codes(hz)}
+        if len(hz) == 1:
+            entry["sm"] = part(hz, Style.INITIALS)
+            # 韵母用「书写形」(strict=False)：水→ui 牛→iu 春→un；且自带去点规则
+            # （jqx+ü→u 如 去=qu；n/l+ü 保留两点 如 绿=lü、女=nü），正是课本拼读所教
+            entry["ym"] = pinyin(hz, style=Style.FINALS, strict=False)[0][0].replace("v", "ü")
+            if pinyin(hz, style=Style.NORMAL)[0][0] in WHOLE_SYLLABLES:
+                entry["whole"] = True          # 整体认读只整块认读、不进拼读
+        return entry
+
     data = {}
     poly = []          # 多音字人工复核清单
     seen_multi = set()
@@ -143,15 +156,7 @@ def build():
         if any(len(s) > 1 for s in ms) and hz not in seen_multi:
             poly.append(f"{hz}\t{ms}")
             seen_multi.add(hz)
-        entry = {"py": disp(hz), "code": codes(hz)}
-        if len(hz) == 1:                       # 单字补声母/韵母/整体认读标记，供「拼音拼读」用
-            entry["sm"] = part(hz, Style.INITIALS)
-            # 韵母用「书写形」(strict=False)：水→ui 牛→iu 春→un；且自带去点规则
-            # （jqx+ü→u 如 去=qu；n/l+ü 保留两点 如 绿=lü、女=nü），正是课本拼读所教
-            entry["ym"] = pinyin(hz, style=Style.FINALS, strict=False)[0][0].replace("v", "ü")
-            if pinyin(hz, style=Style.NORMAL)[0][0] in WHOLE_SYLLABLES:
-                entry["whole"] = True          # 整体认读只整块认读、不进拼读
-        data[hz] = entry
+        data[hz] = make_entry(hz)
         return True
 
     # 单字 -> 自动归世界
@@ -182,6 +187,19 @@ def build():
         f.write("\n".join(poly))
     counts = " ".join(f"#{w['id']}={len(w['words'])}" for w in worlds)
     print(f"已写 {OUT}：{len(data)} 字/词，{len(worlds)} 世界（{counts}）；多音字待复核 {len(poly)} 条。")
+
+    # 离线常用字拼音字典：供「自主命题/跟着课本」运行时查任意常用字（无服务器、纯静态）
+    cc_path = os.path.join(HERE, "common-chars.txt")
+    if os.path.exists(cc_path):
+        with open(cc_path, encoding="utf-8") as f:
+            common = [c for c in f.read() if "一" <= c <= "鿿"]
+        dict_data = {hz: make_entry(hz) for hz in dict.fromkeys(common)}  # 去重保序
+        with open(DICT_OUT, "w", encoding="utf-8") as f:
+            f.write("/* 自动生成，勿手改。源：tools/gen_data.py + common-chars.txt（通用规范汉字表一级）。 */\n"
+                    "window.PINYIN_DICT = " + json.dumps(dict_data, ensure_ascii=False) + ";\n")
+        print(f"已写 {DICT_OUT}：常用字字典 {len(dict_data)} 字。")
+    else:
+        print(f"（跳过常用字字典：未找到 {cc_path}）")
 
 
 if __name__ == "__main__":
