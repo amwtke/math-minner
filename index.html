@@ -223,12 +223,23 @@
         <div class="wicon" style="background:var(--cyan)"></div>
         <div><h3>➗ 数学</h3><p>挖方块 · 学加减 · 凑十法</p></div>
       </div>
-      <div class="world" style="background:linear-gradient(135deg,var(--grass),rgba(0,0,0,.25))" onclick="G.goModes('cn')">
+      <div class="world" style="background:linear-gradient(135deg,var(--grass),rgba(0,0,0,.25))" onclick="_unlockAudio();G.enterCn()">
         <div class="wicon" style="background:var(--grass)"></div>
         <div><h3>📖 语文拼音</h3><p>汉字配拼音 · 挖方块学拼音</p></div>
       </div>
     </div>
     <p class="tip" style="margin-top:20px">矿石、镐子、皮肤、星星 两科共享 · 进度自动存档</p>
+  </section>
+
+  <!-- AUDIO FETCH -->
+  <section id="audioFetch" class="screen" style="text-align:center;padding-top:40px">
+    <div class="logo pix" style="font-size:18px">📥 准备发音</div>
+    <p class="tip" id="afMsg" style="margin-top:18px">首次进入语文，正在下载发音资源…</p>
+    <div class="tip" style="font-size:28px;margin-top:18px">⏳</div>
+    <div class="closeRow" id="afActions" style="margin-top:22px;display:none">
+      <button class="btn green" onclick="Audio2.retry()">重试 🔄</button>
+      <button class="btn gray" onclick="Audio2.skip()">继续（暂无发音）</button>
+    </div>
   </section>
 
 <style>
@@ -454,6 +465,29 @@ function beep(type){
     g.gain.setValueAtTime(.08,a.currentTime); g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.18);
     o.start(); o.stop(a.currentTime+.18);
   }catch(e){}
+}
+const _pyPool = new Map();
+let _audioUnlocked = false;
+// 极小静音 WAV（44 字节、0 采样），仅用于在用户手势内解锁 iOS 的 HTML5 Audio。
+const _SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=';
+function _unlockAudio(){
+  if(_audioUnlocked) return; _audioUnlocked = true;
+  try{ const a=new Audio(_SILENT_WAV); a.volume=0; a.play().catch(()=>{}); }catch(e){}
+  // 兜底：真正的发音都从点击回调(success/tap)内触发，本身就在手势链里。
+}
+function playPy(codes){
+  const list = Array.isArray(codes) ? codes : [codes];
+  let i=0;
+  const step=()=>{
+    if(i>=list.length) return;
+    const code=list[i++]; if(!code){ return step(); }
+    let a=_pyPool.get(code);
+    if(!a){ a=new Audio('/audio/pinyin/'+code+'.mp3'); _pyPool.set(code,a); }
+    a.currentTime=0;
+    a.onended=()=>setTimeout(step,120);   // 多字词顺序播，间隔 120ms
+    a.play().catch(()=>{});
+  };
+  step();
 }
 function avatarHTML(skinId,small){
   const sk=SKINS[skinId]||SKINS.steve; let cells='';   // 无效皮肤兜底,避免崩溃
@@ -683,7 +717,9 @@ const G = {
   tap(i){
     if(S.busy) return;
     const t=S.board[i]; if(!t||t.done) return;
-    if(S.sel===null){ S.sel=i; this.renderBoard(); return; }
+    if(S.sel===null){ S.sel=i; this.renderBoard();
+      if(S.subject==='cn'){ const t2=S.board[i]; if(t2 && t2.k==='a' && t2.code) playPy(t2.code); }
+      return; }
     if(S.sel===i){ S.sel=null; this.renderBoard(); return; }
     const a=S.board[S.sel], b=t;
     if(a.k===b.k){ S.sel=i; this.renderBoard(); return; }
@@ -1035,6 +1071,38 @@ const M = {
 };
 G.goSubjects = function(){ const b=$('subjBadge'); if(b) b.textContent='👤 '+(Auth.user||''); show('subjects'); };
 G.goModes = function(subj){ S.subject = subj||S.subject||'math'; renderModes(S.subject); show('modes'); };
+const Audio2 = {
+  ready:false,
+  async ensure(){           // 返回 true=可继续进语文
+    if(this.ready) return true;
+    try{
+      const r=await fetch('/api/audio/status'); const j=await r.json();
+      if(j.ready){ this.ready=true; return true; }
+    }catch(e){}
+    return false;
+  },
+  async gate(){             // 进语文前调用：就绪直接放行，否则进下载屏
+    if(await this.ensure()) return true;
+    show('audioFetch'); $('afActions').style.display='none';
+    $('afMsg').textContent='首次进入语文，正在下载发音资源…';
+    try{
+      const r=await fetch('/api/audio/fetch',{method:'POST'}); const j=await r.json();
+      if(j.ok){ this.ready=true; return true; }
+      throw new Error(j.error||'下载失败');
+    }catch(e){
+      $('afMsg').textContent='发音下载失败（服务器可能没联网）。可重试，或先无发音游玩。';
+      $('afActions').style.display='flex';
+      return false;          // 等用户在下载屏点重试/跳过
+    }
+  },
+  retry(){ this.ready=false; G.enterCn(); },
+  skip(){ this.ready=false; G.goModes('cn'); },   // 降级：无发音继续
+};
+G.enterCn = async function(){
+  _unlockAudio();
+  const ok = await Audio2.gate();
+  if(ok) G.goModes('cn');     // 失败时停在 #audioFetch，由用户选重试/跳过
+};
 function renderModes(subj){
   const list=$('modeList');
   $('modeTitle').textContent = subj==='cn' ? '语文 · 选择玩法' : '数学 · 选择玩法';
