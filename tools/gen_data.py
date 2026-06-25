@@ -188,18 +188,26 @@ def build():
     counts = " ".join(f"#{w['id']}={len(w['words'])}" for w in worlds)
     print(f"已写 {OUT}：{len(data)} 字/词，{len(worlds)} 世界（{counts}）；多音字待复核 {len(poly)} 条。")
 
-    # 离线常用字拼音字典：供「自主命题/跟着课本」运行时查任意常用字（无服务器、纯静态）
+    # 离线字典：通用规范一级常用字 + 「跟着课本」用到的生字，供「自主命题/跟着课本」
+    # 运行时查任意字的拼音与发音（无服务器、纯静态）。课本生字若超出一级常用字范围
+    # （如「粽」「咚」），并进来确保每个课本字都有拼音和真人发音。
     cc_path = os.path.join(HERE, "common-chars.txt")
+    tb_path = os.path.join(HERE, "..", "textbook-data.js")
+    chars_src = []
     if os.path.exists(cc_path):
         with open(cc_path, encoding="utf-8") as f:
-            common = [c for c in f.read() if "一" <= c <= "鿿"]
-        dict_data = {hz: make_entry(hz) for hz in dict.fromkeys(common)}  # 去重保序
+            chars_src += [c for c in f.read() if "一" <= c <= "鿿"]
+    if os.path.exists(tb_path):                 # 先生成 textbook-data.js，再跑本脚本即可自动覆盖
+        with open(tb_path, encoding="utf-8") as f:
+            chars_src += [c for c in f.read() if "一" <= c <= "鿿"]
+    if chars_src:
+        dict_data = {hz: make_entry(hz) for hz in dict.fromkeys(chars_src)}  # 去重保序
         with open(DICT_OUT, "w", encoding="utf-8") as f:
-            f.write("/* 自动生成，勿手改。源：tools/gen_data.py + common-chars.txt（通用规范汉字表一级）。 */\n"
+            f.write("/* 自动生成，勿手改。源：tools/gen_data.py（common-chars.txt 一级常用字 + textbook-data.js 课本生字）。 */\n"
                     "window.PINYIN_DICT = " + json.dumps(dict_data, ensure_ascii=False) + ";\n")
-        print(f"已写 {DICT_OUT}：常用字字典 {len(dict_data)} 字。")
+        print(f"已写 {DICT_OUT}：离线字典 {len(dict_data)} 字。")
     else:
-        print(f"（跳过常用字字典：未找到 {cc_path}）")
+        print(f"（跳过离线字典：未找到 {cc_path}）")
 
 
 if __name__ == "__main__":
