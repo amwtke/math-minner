@@ -10,11 +10,14 @@
 
 存档:每个玩家一个 data/<名字>.json,写入用文件锁 + 原子替换防并发损坏。
 """
+import io
 import json
 import os
 import socket
 import sys
 import threading
+import urllib.request
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -64,6 +67,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._players()
         if path == "/api/save":
             return self._get_save(parsed)
+        if path == "/api/audio/status":
+            return self._audio_status()
         if path.startswith("/api/"):
             return self._send_json(404, {"ok": False, "error": "not found"})
         return self._serve_static(path)
@@ -75,6 +80,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._login()
         if path == "/api/save":
             return self._post_save(parsed)
+        if path == "/api/audio/fetch":
+            return self._audio_fetch()
         return self._send_json(404, {"ok": False, "error": "not found"})
 
     # —— API 处理 ————————————————————————————————————————————
@@ -135,6 +142,31 @@ class Handler(BaseHTTPRequestHandler):
             skin = obj.get("skin") if isinstance(obj, dict) else None
             out.append({"name": name, "skin": skin})
         return self._send_json(200, {"players": out})
+
+    def _audio_have(self):
+        try:
+            return sum(1 for f in os.listdir(self.server.audio_dir)
+                       if f.endswith(".mp3"))
+        except OSError:
+            return 0
+
+    def _audio_status(self):
+        ready = os.path.exists(self.server.ready_sentinel)
+        return self._send_json(200, {"ok": True, "ready": ready,
+                                      "have": self._audio_have()})
+
+    def _audio_fetch(self):
+        with self.server.audio_lock:                      # 串行，避免多设备并发重复下载
+            if os.path.exists(self.server.ready_sentinel):
+                return self._send_json(200, {"ok": True, "have": self._audio_have()})
+            try:
+                data = _download_zip(AUDIO_ZIP_URL)
+                n = extract_pinyin_mp3(data, self.server.audio_dir)
+            except Exception as e:                         # 网络/解压失败：不写哨兵，可重试
+                return self._send_json(502, {"ok": False, "error": "下载失败：" + str(e)})
+            with open(self.server.ready_sentinel, "w") as f:
+                f.write("ok")
+            return self._send_json(200, {"ok": True, "have": n})
 
     # —— 存储工具 ————————————————————————————————————————————
     def _lock_for(self, name):
@@ -212,6 +244,38 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
+AUDIO_ZIP_URL = ("https://codeload.github.com/davinfifield/"
+                 "mp3-chinese-pinyin-sound/zip/refs/heads/master")
+
+
+def extract_pinyin_mp3(zip_bytes, dest_dir):
+    """把 zip 内所有 *.mp3 按 basename 拍平写入 dest_dir，返回写入数。
+    basename 化天然挡住 zip-slip（不含分隔符），再加 commonpath 双保险。"""
+    os.makedirs(dest_dir, exist_ok=True)
+    root = os.path.abspath(dest_dir)
+    n = 0
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as z:
+        for info in z.infolist():
+            if info.is_dir() or not info.filename.lower().endswith(".mp3"):
+                continue
+            base = os.path.basename(info.filename)
+            if not base:
+                continue
+            target = os.path.abspath(os.path.join(dest_dir, base))
+            if os.path.commonpath([root, target]) != root:
+                continue
+            with z.open(info) as src, open(target, "wb") as dst:
+                dst.write(src.read())
+            n += 1
+    return n
+
+
+def _download_zip(url, timeout=120):
+    req = urllib.request.Request(url, headers={"User-Agent": "MathMiner/1.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read()
+
+
 def _content_type(path):
     for ext, ctype in (
         (".html", "text/html; charset=utf-8"),
@@ -242,6 +306,9 @@ def make_server(host, port, data_dir, web_dir):
     srv.web_dir = os.path.abspath(web_dir)
     srv.locks = {}
     srv.locks_guard = threading.Lock()
+    srv.audio_dir = os.path.join(srv.web_dir, "audio", "pinyin")
+    srv.ready_sentinel = os.path.join(srv.web_dir, "audio", ".ready")
+    srv.audio_lock = threading.Lock()
     return srv
 
 

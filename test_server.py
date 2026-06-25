@@ -4,11 +4,13 @@
 并发写不损坏、静态文件、未知路径 404。
 运行: python3 test_server.py
 """
+import io
 import json
 import os
 import tempfile
 import threading
 import unittest
+import zipfile
 import http.client
 from urllib.parse import quote
 
@@ -251,6 +253,44 @@ class ServerHTTPTests(unittest.TestCase):
         self.assertIn("Good", names)
         self.assertNotIn("Race.json", names)   # .tmp 残留不算玩家
         self.assertNotIn("Race", names)
+
+
+    def test_audio_status_not_ready_initially(self):
+        status, data = _get(self.port, "/api/audio/status")
+        self.assertEqual(status, 200)
+        j = json.loads(data)
+        self.assertFalse(j["ready"])
+        self.assertEqual(j["have"], 0)
+
+
+class ExtractAudioTest(unittest.TestCase):
+    def _zip(self, names):
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as z:
+            for n in names:
+                z.writestr(n, b"ID3" + n.encode("utf-8", "ignore"))
+        return buf.getvalue()
+
+    def test_flattens_mp3_by_basename(self):
+        d = tempfile.mkdtemp()
+        zb = self._zip([
+            "mp3-chinese-pinyin-sound-master/mp3/ma3.mp3",
+            "mp3-chinese-pinyin-sound-master/mp3/luu4.mp3",
+            "mp3-chinese-pinyin-sound-master/README.md",   # 非 mp3 跳过
+        ])
+        n = server.extract_pinyin_mp3(zb, d)
+        self.assertEqual(n, 2)
+        self.assertTrue(os.path.exists(os.path.join(d, "ma3.mp3")))
+        self.assertTrue(os.path.exists(os.path.join(d, "luu4.mp3")))
+        self.assertFalse(os.path.exists(os.path.join(d, "README.md")))
+
+    def test_rejects_zip_slip(self):
+        d = tempfile.mkdtemp()
+        zb = self._zip(["../../evil.mp3", "ok/ma1.mp3"])
+        server.extract_pinyin_mp3(zb, d)
+        # 恶意条目被 basename 拍平成 d/evil.mp3，留在 dest 内，绝不逃逸到上级目录
+        self.assertTrue(os.path.exists(os.path.join(d, "ma1.mp3")))
+        self.assertFalse(os.path.exists(os.path.abspath(os.path.join(d, "..", "..", "evil.mp3"))))
 
 
 if __name__ == "__main__":
