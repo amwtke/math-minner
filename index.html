@@ -207,8 +207,26 @@
     <div class="logo pix">方块<br>数学矿工<small>MATH MINER</small></div>
     <div class="avatarBox" id="titleAvatar"></div>
     <div class="subtitle">⛏️ 挖方块 · 学加减 · 造神镐 · 放技能</div>
-    <button class="btn green pix" style="font-size:16px;padding:16px 28px" onclick="G.goModes()">开 始 游 戏 ▶</button>
+    <button class="btn green pix" style="font-size:16px;padding:16px 28px" onclick="G.goSubjects()">开 始 游 戏 ▶</button>
     <p class="tip">点「题目方块」再点「答案方块」<br>配对成功就把方块挖掉！</p>
+  </section>
+
+  <!-- SUBJECT SELECT -->
+  <section id="subjects" class="screen">
+    <div class="userBar"><span id="subjBadge"></span>
+      <button class="btn gray" style="font-size:11px;padding:6px 10px" onclick="show('title')">↩ 标题</button></div>
+    <div class="logo pix" style="font-size:20px">选择学科</div>
+    <div style="display:grid;gap:14px;margin-top:22px">
+      <div class="world" style="background:linear-gradient(135deg,var(--cyan),rgba(0,0,0,.25))" onclick="G.goModes('math')">
+        <div class="wicon" style="background:var(--cyan)"></div>
+        <div><h3>➗ 数学</h3><p>挖方块 · 学加减 · 凑十法</p></div>
+      </div>
+      <div class="world" style="background:linear-gradient(135deg,var(--grass),rgba(0,0,0,.25))" onclick="G.goModes('cn')">
+        <div class="wicon" style="background:var(--grass)"></div>
+        <div><h3>📖 语文拼音</h3><p>汉字配拼音 · 挖方块学拼音</p></div>
+      </div>
+    </div>
+    <p class="tip" style="margin-top:20px">矿石、镐子、皮肤、星星 两科共享 · 进度自动存档</p>
   </section>
 
 <style>
@@ -228,18 +246,9 @@
 
   <!-- MODE SELECT -->
   <section id="modes" class="screen">
-    <div class="logo pix" style="font-size:20px">选择玩法</div>
-    <div style="display:grid;gap:14px;margin-top:22px">
-      <div class="world" style="background:linear-gradient(135deg,var(--grass),rgba(0,0,0,.25))" onclick="G.goWorlds()">
-        <div class="wicon" style="background:var(--grass)"></div>
-        <div><h3>⛏️ 配对挖矿</h3><p>题目配答案，挖方块学加减</p></div>
-      </div>
-      <div class="world" style="background:linear-gradient(135deg,var(--cyan),rgba(0,0,0,.25))" onclick="M.start()">
-        <div class="wicon" style="background:var(--cyan)"></div>
-        <div><h3>💥 数字消消乐</h3><p>连成一串凑出目标数字，越凑越爽</p></div>
-      </div>
-    </div>
-    <p class="tip" style="margin-top:20px">矿石、镐子、皮肤两种玩法共享 · 进度自动存档</p>
+    <div class="logo pix" style="font-size:20px" id="modeTitle">选择玩法</div>
+    <div style="display:grid;gap:14px;margin-top:22px" id="modeList"></div>
+    <p class="tip" style="margin-top:20px" id="modeTip">矿石、镐子、皮肤共享 · 进度自动存档</p>
     <div style="text-align:center;margin-top:12px">
       <button class="btn gray" style="font-size:12px;padding:8px 16px" onclick="if(confirm('确定清空所有存档进度吗？')) resetSave()">🗑️ 清空进度</button>
     </div>
@@ -988,7 +997,29 @@ const M = {
   },
   lose(){ $('crushLose').classList.add('on'); },
 };
-G.goModes = function(){ show('modes'); };
+G.goSubjects = function(){ const b=$('subjBadge'); if(b) b.textContent='👤 '+(Auth.user||''); show('subjects'); };
+G.goModes = function(subj){ S.subject = subj||S.subject||'math'; renderModes(S.subject); show('modes'); };
+function renderModes(subj){
+  const list=$('modeList');
+  $('modeTitle').textContent = subj==='cn' ? '语文 · 选择玩法' : '数学 · 选择玩法';
+  if(subj==='cn'){
+    list.innerHTML = `
+      <div class="world" style="background:linear-gradient(135deg,var(--grass),rgba(0,0,0,.25))" onclick="PG.start()">
+        <div class="wicon" style="background:var(--grass)"></div>
+        <div><h3>🔤 拼音配对挖矿</h3><p>汉字配拼音，挖方块学认读</p></div>
+      </div>`;
+  } else {
+    list.innerHTML = `
+      <div class="world" style="background:linear-gradient(135deg,var(--grass),rgba(0,0,0,.25))" onclick="G.goWorlds()">
+        <div class="wicon" style="background:var(--grass)"></div>
+        <div><h3>⛏️ 配对挖矿</h3><p>题目配答案，挖方块学加减</p></div>
+      </div>
+      <div class="world" style="background:linear-gradient(135deg,var(--cyan),rgba(0,0,0,.25))" onclick="M.start()">
+        <div class="wicon" style="background:var(--cyan)"></div>
+        <div><h3>💥 数字消消乐</h3><p>连成一串凑出目标数字</p></div>
+      </div>`;
+  }
+}
 
 function rand(a,b){ return Math.floor(Math.random()*(b-a+1))+a; }
 function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
