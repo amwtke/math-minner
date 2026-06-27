@@ -596,7 +596,7 @@ function freshState(){
     board:[], sel:null, skillUses:{}, shield:false, busy:false,
     subject:'math', voiceSpeed:2, misses:{},
     qsource:{type:'default',label:'默认游戏',items:null},
-    matchStage:0, listenStage:0, toneStage:0, spellStage:0,
+    matchStage:0, listenStage:0, toneStage:0, spellStage:0, readStage:0,
     pyMatchStage:pyStageDefaults() };
 }
 
@@ -652,7 +652,7 @@ function avatarHTML(skinId,small){
 
 /* ===================== 多人登录 ===================== */
 const USER_KEY='mathminer_user';
-const SAVE_FIELDS=['res','tool','skinsOwned','skin','stage','crushStage','stars','totalCleared','pyMatchStage','voiceSpeed','matchStage','listenStage','toneStage','spellStage','misses','qsource'];
+const SAVE_FIELDS=['res','tool','skinsOwned','skin','stage','crushStage','stars','totalCleared','pyMatchStage','voiceSpeed','matchStage','listenStage','toneStage','spellStage','readStage','misses','qsource'];
 function escapeHTML(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 const Auth = {
@@ -712,7 +712,7 @@ function applySave(d){
   if(typeof S.matchStage!=='number'){                  // 旧档：8 个世界进度迁到统一进度(取最高)
     S.matchStage = Math.max(0, ...Object.values(S.pyMatchStage).map(Number).filter(n=>!isNaN(n)));
   }
-  ['listenStage','toneStage','spellStage'].forEach(k=>{ if(typeof S[k]!=='number') S[k]=0; });
+  ['listenStage','toneStage','spellStage','readStage'].forEach(k=>{ if(typeof S[k]!=='number') S[k]=0; });
   if(!S.misses || typeof S.misses!=='object') S.misses={};   // 错题本
   if(!S.qsource || typeof S.qsource!=='object' || !S.qsource.type)
     S.qsource={type:'default',label:'默认游戏',items:null};   // 选题：默认/自主命题
@@ -1459,6 +1459,7 @@ function gamePool(kind, stage){
   if(S.qsource && S.qsource.type!=='default'){
     const items=(S.qsource.items||[]);
     if(kind==='match') return items.slice();                      // 配对：字+词全用
+    if(kind==='read')  return items.filter(h=>PD(h));            // 看拼音选词：字+词都可考
     const singles=items.filter(h=>h.length===1 && PD(h));         // 听音/声调/拼读：仅单字
     if(kind==='listen') return singles.filter(h=>(PD(h).code||[]).some(Boolean));
     if(kind==='tone')   return singles.filter(h=>{ const v=PD(h); const t=_toneOf(v.code[0]); return v.code.length===1&&t>=1&&t<=4; });
@@ -1466,6 +1467,8 @@ function gamePool(kind, stage){
     return singles;
   }
   if(kind==='match')  return _matchPool(Math.min(3+stage,8));
+  if(kind==='read'){ let pool=_cnPool(_cnMaxWorld(stage));        // 单字 1..min(3+关,6)
+    if(stage>=3) pool=pool.concat(_readWords()); return pool; }  // 第4关起并入词语
   if(kind==='listen') return _cnPool(_cnMaxWorld(stage));
   if(kind==='tone')   return _cnPool(_cnMaxWorld(stage), v=>{ const t=_toneOf(v.code[0]); return v.code.length===1&&t>=1&&t<=4; });
   if(kind==='pm'){ const ok=v=>v&&v.sm&&!v.whole&&_toneOf(v.code[0])>=1;
@@ -1484,6 +1487,7 @@ function _cnPool(maxWorld, filter){     // 世界 1..maxWorld 的单字（filter
 function _matchPool(maxWorld){          // 拼音配对统一题库：世界 1..maxWorld 的全部字与词
   const out=[]; PINYIN_WORLDS.forEach(w=>{ if(w.id<=maxWorld) out.push(...w.words); }); return out;
 }
+function _readWords(){ return PINYIN_WORLDS.filter(w=>w.id>=7).flatMap(w=>w.words); }  // 看拼音选词：词语池(世界7-8)
 function _wsample(items, weightFn, n){  // 按权重不放回抽 n 个
   const pool=items.slice(), out=[];
   while(out.length<n && pool.length){
