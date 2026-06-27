@@ -1492,7 +1492,7 @@ function _cnPool(maxWorld, filter){     // 世界 1..maxWorld 的单字（filter
 function _matchPool(maxWorld){          // 拼音配对统一题库：世界 1..maxWorld 的全部字与词
   const out=[]; PINYIN_WORLDS.forEach(w=>{ if(w.id<=maxWorld) out.push(...w.words); }); return out;
 }
-function _readWords(){ return PINYIN_WORLDS.filter(w=>w.id>=7).flatMap(w=>w.words); }  // 看拼音选词：词语池(世界7-8)
+function _readWords(){ return PINYIN_WORLDS.filter(w=>w.id>=7).flatMap(w=>w.words).filter(h=>PD(h)); }  // 看拼音选词：词语池(世界7-8)
 function _wsample(items, weightFn, n){  // 按权重不放回抽 n 个
   const pool=items.slice(), out=[];
   while(out.length<n && pool.length){
@@ -1761,7 +1761,8 @@ const READ = {                                  // 🔎 看拼音选词：读拼
   start(){
     S.subject='cn'; const stage=S.readStage;
     const pool=gamePool('read', stage);
-    if(pool.length<2){ toast('这个题库里能「看拼音选词」的字词不足，换个玩法或题库'); return G.goModes('cn'); }
+    if(new Set(pool.map(h=>(PD(h)||{}).py).filter(Boolean)).size<2){
+      toast('这个题库里能「看拼音选词」的字词不足，换个玩法或题库'); return G.goModes('cn'); }
     CNQ={kind:'read', stage, hearts:cnqMaxHearts(), maxHearts:cnqMaxHearts(), score:0, cleared:0, combo:0,
       goal:6+stage, n:Math.min(4,pool.length), depth:Math.min(1+Math.floor(stage/2),4),
       busy:false, pool, last:null, cur:null};
@@ -1790,21 +1791,22 @@ const READ = {                                  // 🔎 看拼音选词：读拼
   _choices(target, pool, n){                              // 造 n 个候选(含正确项)；干扰项带调拼音不得等于正确项
     const pyT=(PD(target)||{}).py, isWord=target.length>1;
     const valid=h=>{ const u=PD(h); return u && h!==target && u.py!==pyT; };   // 去歧义
-    const cand=pool.filter(h=> isWord ? h.length>1 : h.length===1 ).filter(valid);
+    const same=pool.filter(h=> isWord ? h.length>1 : h.length===1 ).filter(valid);
     let pref;
     if(isWord){                                           // 词语：同世界 / 共享一个字 优先
       const w=PINYIN_WORLDS.find(W=>W.words.includes(target));
-      const sameWorld=cand.filter(h=> w && w.words.includes(h));
-      const shareChar=cand.filter(h=> Array.from(target).some(c=>h.includes(c)));
+      const sameWorld=same.filter(h=> w && w.words.includes(h));
+      const shareChar=same.filter(h=> Array.from(target).some(c=>h.includes(c)));
       pref=Array.from(new Set(sameWorld.concat(shareChar)));
     } else {                                              // 单字：同声母/同韵母(读音易混)
-      pref=Weak.similar(target, cand);
+      pref=Weak.similar(target, same);
     }
     let bag=shuffle(pref.slice()).slice(0, n-1);
-    if(bag.length<n-1){                                   // 不够则池内随机补齐
-      const more=shuffle(cand.filter(h=>!bag.includes(h)));
-      bag=bag.concat(more.slice(0, n-1-bag.length));
-    }
+    const topUp=src=>{ if(bag.length>=n-1) return;        // 同型不够→异型补，候选不退化成 1 个
+      const more=shuffle(src.filter(valid).filter(h=>!bag.includes(h)));
+      bag=bag.concat(more.slice(0, n-1-bag.length)); };
+    topUp(same);                                          // 先同型补
+    topUp(pool);                                          // 仍不足再用整池(含异型字/词)补
     return shuffle(bag.concat(target));
   },
   answer(hz,el){

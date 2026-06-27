@@ -136,7 +136,7 @@ Claude-Session: https://claude.ai/code/session_01YX5BksCCdazdU5b72Uw4Qo"
 **Interfaces:**
 - Consumes（Task 1）：`gamePool('read', stage)`、`S.readStage`、`_readWords()`
 - Consumes（现有）：`CNQ`、`cnqMaxHearts()`、`cnqHUD()`、`cnqGood()`、`cnqHit(el)`、`cnqMiss(el)`、`cnqWin(stageKey, restart, hint)`、`cnqLose(restart)`、`Weak.pick(pool, last)`、`Weak.hit(k)`、`Weak.miss(k)`、`Weak.similar(key, pool)`、`PD(hz)`→`{py,code,sm,ym}`、`PINYIN_WORLDS`、`playPy(codes)`、`shuffle(arr)`、`beep(name)`、`toast(msg)`、`show(id)`、`$(id)`、`G.goModes('cn')`
-- Produces：全局 `const READ`，含 `READ.start()`、`READ.next()`、`READ._choices(target, pool, n)`→`string[]`（含正确项、去歧义、已洗牌）、`READ.pick(target)`、`READ.answer(hz, el)`、`READ.win()`、`READ.lose()`
+- Produces：全局 `const READ`，含 `READ.start()`、`READ.next()`、`READ._choices(target, pool, n)`→`string[]`（含正确项、去歧义、已洗牌）、`READ.answer(hz, el)`、`READ.win()`、`READ.lose()`
 
 - [ ] **Step 1: 加 `.readPy` 样式**
 
@@ -201,7 +201,6 @@ const READ = {                                  // 🔎 看拼音选词：读拼
     }
     return shuffle(bag.concat(target));
   },
-  pick(target){ return this._choices(target, CNQ.pool, CNQ.n); },
   answer(hz,el){
     if(CNQ.busy) return;
     if(hz===CNQ.cur.target){
