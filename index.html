@@ -280,6 +280,10 @@
         <div class="wicon" style="background:var(--grass)"></div>
         <div><h3>📖 语文拼音</h3><p>汉字配拼音 · 挖方块学拼音</p></div>
       </div>
+      <div class="world" style="background:linear-gradient(135deg,var(--gold),rgba(0,0,0,.25))" onclick="G.enterEn()">
+        <div class="wicon" style="background:var(--gold)"></div>
+        <div><h3>📕 英语</h3><p>中英配对 · 看图听词 · 练语感</p></div>
+      </div>
     </div>
     <p class="tip" style="margin-top:20px">矿石、镐子、皮肤、星星 两科共享 · 进度自动存档</p>
   </section>
@@ -1276,7 +1280,7 @@ const M = {
 G.goSubjects = function(){ const b=$('subjBadge'); if(b) b.textContent='👤 '+(Auth.user||''); show('subjects'); };
 G.goModes = function(subj){ S.subject = subj||S.subject||'math'; renderModes(S.subject); show('modes'); };
 // 游戏内「主页」键：语文→回玩法选择（已无世界地图），数学→回世界地图
-G.gameHome = function(){ if(S.subject==='cn') G.goModes('cn'); else G.goWorlds(); };
+G.gameHome = function(){ if(S.subject==='cn') G.goModes('cn'); else if(S.subject==='en') G.goModes('en'); else G.goWorlds(); };
 // ===== 选题（题库）：语文顶级入口，选默认/自主命题/跟着课本后再进 4 种玩法 =====
 G.goQsrc = function(){ S.subject='cn';
   const t=$('qsrcTip'); if(t) t.textContent = (S.qsource&&S.qsource.type!=='default')
@@ -1366,7 +1370,7 @@ G.customStart = function(){
   const items=(G._customItems||[]).slice(); if(!items.length) return;
   S.qsource={type:'custom', label:'自主命题', items}; saveGame(); G.goModes('cn');
 };
-G.modesBack = function(){ if(S.subject==='cn') G.goQsrc(); else G.goSubjects(); };
+G.modesBack = function(){ if(S.subject==='cn') G.goQsrc(); else G.goSubjects(); };   // 英语本期直接回学科；Task 8 接题库屏后改为 G.goEnQsrc()
 const Audio2 = {
   ready:false,
   async ensure(){           // 返回 true=可继续进语文
@@ -1399,10 +1403,28 @@ G.enterCn = async function(){
   const ok = await Audio2.gate();
   if(ok) G.goQsrc();          // 进语文先选题库；失败时停在 #audioFetch，由用户选重试/跳过
 };
+// 英语默认发音包随仓库提供（已离线），无需下载门；本期直接进默认题库玩法屏。
+G.enterEn = function(){
+  _unlockAudio();
+  S.subject='en';
+  S.enQsource={type:'default',label:'默认主题',items:null};
+  G.goModes('en');
+};
 function renderModes(subj){
   const list=$('modeList');
-  $('modeTitle').textContent = subj==='cn' ? '语文 · 选择玩法' : '数学 · 选择玩法';
+  $('modeTitle').textContent = subj==='cn' ? '语文 · 选择玩法' : (subj==='en' ? '英语 · 选择玩法' : '数学 · 选择玩法');
   const src=$('modeSrc'), back=$('modeBack');
+  if(subj==='en'){
+    if(back) back.textContent='↩ 学科';
+    if(src) src.innerHTML = `📚 题库：<b>${(S.enQsource&&S.enQsource.label)||'默认主题'}</b>`
+      + ((S.enQsource&&S.enQsource.items&&S.enQsource.items.length) ? `（${S.enQsource.items.length} 词）` : '');
+    list.innerHTML = `
+      <div class="world" style="background:linear-gradient(135deg,var(--gold),rgba(0,0,0,.25))" onclick="EG.start()">
+        <div class="wicon" style="background:var(--gold)"></div>
+        <div><h3>⛏️ 词义配对挖矿</h3><p>中文配英文，点方块听发音</p></div>
+      </div>`;
+    return;
+  }
   if(subj==='cn'){
     if(back) back.textContent='↩ 题库';
     if(src) src.innerHTML = `📚 题库：<b>${(S.qsource&&S.qsource.label)||'默认游戏'}</b>`
