@@ -1982,6 +1982,47 @@ const READ = {                                  // 🔎 看拼音选词：读拼
   lose(){ cnqLose(()=>READ.start()); },
 };
 
+// 🎨 看图选词：看 emoji（无图退中文/英文）→ 4 选 1 选英文词
+const EPICK = {
+  start(){
+    S.subject='en'; const stage=S.enPickStage;
+    const pool=enGamePool('pick', stage);
+    if(pool.length<2){ toast('这个题库能「看图选词」的单词不足，换个玩法或题库'); return G.goModes('en'); }
+    CNQ={kind:'enPick', hearts:cnqMaxHearts(), maxHearts:cnqMaxHearts(), score:0, cleared:0, combo:0,
+      goal:6+stage, n:Math.min(4,pool.length), depth:Math.min(1+Math.floor(stage/2),4),
+      busy:false, pool, last:null, cur:null};
+    $('qTitle').textContent=`🎨 看图选词 · 第${stage+1}关`;
+    show('cnq'); this.next();
+  },
+  next(){
+    CNQ.busy=false;
+    const target=Weak.pick(CNQ.pool, CNQ.last); CNQ.last=target;
+    const it=EN_INDEX.get(target)||{};
+    const prompt=it.emoji || it.zh || target;            // 有图用图；无图退中文；再无退英文本身
+    const choices=_enChoices(target, CNQ.pool, CNQ.n);
+    CNQ.cur={target, audio:_enKey(target)};
+    cnqHUD();
+    $('qPrompt').innerHTML=`<div class="cnqBig">${prompt}</div>`;
+    $('qHint').textContent='看图，选对应的单词';
+    $('qBody').className='cnqBody listenGrid';
+    $('qBody').innerHTML=choices.map(w=>`<button class="cnqChar en" data-w="${w}"><span class="val">${w}</span></button>`).join('');
+    $('qBody').querySelectorAll('.cnqChar').forEach(b=>b.onclick=()=>EPICK.answer(b.dataset.w,b));
+  },
+  answer(w,el){
+    if(CNQ.busy) return;
+    if(w===CNQ.cur.target){
+      CNQ.busy=true; beep('good'); cnqHit(el); playEn(CNQ.cur.audio); Weak.hit(CNQ.cur.target); cnqGood(); cnqHUD();
+      if(CNQ.cleared>=CNQ.goal){ setTimeout(()=>this.win(),850); return; }
+      setTimeout(()=>this.next(),850);
+    } else {
+      Weak.miss(CNQ.cur.target); cnqMiss(el);
+      if(CNQ.hearts<=0){ CNQ.busy=true; setTimeout(()=>this.lose(),320); }
+    }
+  },
+  win(){ cnqWin('enPickStage', ()=>EPICK.start(), '下一关单词更多、范围更广，加油！'); },
+  lose(){ cnqLose(()=>EPICK.start()); },
+};
+
 // 拼音配对挖矿：8 个世界合并为一条进度，每关从课本进度内混合出题（单/复韵母同关）
 const PG = {
   start(){ S.subject='cn';
