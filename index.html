@@ -1674,7 +1674,7 @@ function enSentencePool(stage){
 // 拼单词取词池：在 enGamePool('spell') 基础上按词长窗过滤（随关卡变长），不足则放宽到≥3字母。
 function enSpellPool(stage){
   const base=enGamePool('spell', stage);
-  const maxLen=Math.min(5+stage,12), minLen=Math.max(3, stage-2);
+  const maxLen=Math.min(5+stage,12), minLen=Math.min(Math.max(3, stage-2), maxLen);  // 钳住下限≤上限：极高关不退化成「全词(变简单)」
   let p=base.filter(w=>{ const n=(w||'').length; return n>=minLen && n<=maxLen; });
   if(p.length<1) p=base.filter(w=>(w||'').length>=3);
   return p;
