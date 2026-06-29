@@ -526,6 +526,7 @@
 <div class="flash" id="flash"></div>
 
 <script src="/pinyin-data.js"></script>
+<script src="/en-data.js"></script>
 <script>
 /* ===================== DATA ===================== */
 const SKINS = {
@@ -644,6 +645,17 @@ function playPy(codes){
     a.play().catch(()=>{});
   };
   step();
+}
+// 英语发音：单文件 mp3（词或整句各一段），按语速档调倍速；缺文件静默降级。
+const _enPool = new Map();
+function playEn(key){
+  if(!key) return;
+  const sp = VOICE_SPEEDS[_voiceIdx()] || VOICE_SPEEDS[2];
+  let a=_enPool.get(key);
+  if(!a){ a=new Audio('/audio/en/'+key+'.mp3'); _enPool.set(key,a); }
+  a.currentTime=0;
+  try{ a.playbackRate = sp.rate; }catch(e){}
+  a.play().catch(()=>{});
 }
 function avatarHTML(skinId,small){
   const sk=SKINS[skinId]||SKINS.steve; let cells='';   // 无效皮肤兜底,避免崩溃
