@@ -79,6 +79,8 @@ WORLD_META = [
 
 
 # 连词成句默认句库（G6 语法）：(world_id, en, zh)。3–7 词，用上表词 + 小函数词。
+# 注意：句子里不要用缩写（I'm / don't / it's）。tokenize 把撇号当词内字符，audio_key 把撇号折叠成 _，
+# 二者分段数会不一致（test_word_count_matches_audio_key_parts 会报错）。要缩写就拆开写（I am / do not）。
 SENTENCES = [
     (3, "Go straight ahead.", "一直往前走。"),
     (7, "I love reading.", "我爱阅读。"),
