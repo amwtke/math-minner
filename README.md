@@ -67,6 +67,22 @@
     python3 -m venv .venv-tools
     .venv-tools/bin/pip install -i https://pypi.tuna.tsinghua.edu.cn/simple pypinyin
 
+## 英语
+
+进标题后选「📕 英语」，先**选题库**，再玩。矿石/镐子/皮肤/星星与数学、语文**共享**。
+
+**题库**：**默认主题**（颜色→动物→食物… 由易到难）或**自主命题**（自己录单词，只练这些）。**不绑课本**。
+
+**玩法（一期）**：⛏️ **词义配对挖矿** —— 中文配英文，**点方块即读英文发音**，配对成功挖矿；随关卡单词更多、范围更广，并针对错题多出。
+
+**发音**：默认主题的发音**随仓库提供、始终离线**。自主命题的新词，由**服务器**首次录入时联网用 TTS 现生成一次到 `audio/en/`（之后离线）；服务器没联网则该词静音、配对仍可玩。`audio/en/` 默认包入 git，自定义生成的发音不入 git。
+
+**重新生成英语数据 / 默认发音包**（仅在改了 `tools/gen_en_data.py` 词库后）：
+
+    cd tools
+    python3 gen_en_data.py          # 生成 en-data.js
+    python3 gen_en_data.py audio    # 生成默认发音包 audio/en/*.mp3（需联网）
+
 ## 测试
 
     python3 test_server.py                           # 服务器单元/集成测试(标准库 unittest)
