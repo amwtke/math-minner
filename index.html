@@ -348,6 +348,8 @@
   </section>
 
 <style>
+  .tile.en .val{font-family:var(--cn);font-weight:700;font-size:20px;letter-spacing:.4px;text-transform:lowercase;line-height:1.15;}
+  .tile.en.q .val{font-family:var(--cn);}   /* 中文题面也用清晰中文体 */
   .crushGrid{display:grid;gap:6px;margin-top:6px;}
   .cnum{aspect-ratio:1/1;border:none;cursor:pointer;border-radius:5px;position:relative;
     font-family:var(--pix);font-size:17px;color:#fff;text-shadow:2px 2px 0 rgba(0,0,0,.5);
@@ -811,6 +813,7 @@ const G = {
   buildBoard(){
     const d = S.diff;
     if(S.subject==='cn'){ return this.buildPinyinBoard(d); }
+    if(S.subject==='en'){ return this.buildEnglishBoard(d); }
     const used = new Set(); const pairs=[];
     let guard=0;
     while(pairs.length < d.pairs && guard++ < 1500){
@@ -841,13 +844,14 @@ const G = {
   // 语速开关（仅语文显示）：切档即试听一段，立即感受快慢
   renderVoiceCtl(){
     const el=$('voiceCtl'); if(!el) return;
-    if(S.subject!=='cn'){ el.style.display='none'; el.innerHTML=''; return; }
+    if(S.subject==='math'){ el.style.display='none'; el.innerHTML=''; return; }
     const idx=_voiceIdx(); el.style.display='flex';
     el.innerHTML = `<span class="vcLbl">🔊 语速</span>` +
       VOICE_SPEEDS.map((s,i)=>`<button type="button" class="vcBtn${i===idx?' on':''}" data-vs="${i}">${s.name}</button>`).join('');
     el.querySelectorAll('.vcBtn[data-vs]').forEach(b=>{ b.onclick=()=>{
       S.voiceSpeed=+b.dataset.vs; _unlockAudio(); G.renderVoiceCtl(); saveGame();
-      const ex=(S.board||[]).find(t=>t.k==='a'&&t.code&&t.code.length); if(ex) playPy(ex.code);
+      if(S.subject==='en'){ const ex=(S.board||[]).find(t=>t.k==='a'&&t.audio); if(ex) playEn(ex.audio); }
+      else { const ex=(S.board||[]).find(t=>t.k==='a'&&t.code&&t.code.length); if(ex) playPy(ex.code); }
     }; });
   },
 
@@ -871,19 +875,40 @@ const G = {
     $('worldName').innerHTML = `🔤 ${custom?S.qsource.label:'拼音配对'} · 第${stage+1}关`;
   },
 
+  buildEnglishBoard(d){
+    const stage=S.enMatchStage;
+    const pool=enGamePool('match', stage);
+    const chosen=Weak.choose(pool, d.pairs);            // 含「针对错题多出相似题」
+    const pairs=chosen.map(en=>{ const it=EN_INDEX.get(en)||{en,zh:en,audio:''};
+      return {zh:it.zh, en:it.en, audio:it.audio}; });
+    let tiles=[];
+    pairs.forEach((p,i)=>{
+      tiles.push({k:'q',pid:i,txt:p.zh,audio:p.audio,done:false});   // 中文题面（点也发英文音）
+      tiles.push({k:'a',pid:i,ans:p.en,audio:p.audio,done:false});   // 英文答案
+    });
+    shuffle(tiles);
+    S.board=tiles; S.sel=null; S.busy=false;
+    this.renderHUD(); this.renderBoard(); this.renderSkills(); this.renderVoiceCtl();
+    const hb=$('homeBtn'); if(hb) hb.textContent='🏠 玩法';
+    const custom = S.enQsource && S.enQsource.type!=='default';
+    $('worldName').innerHTML = `⛏️ ${custom?S.enQsource.label:'词义配对'} · 第${stage+1}关`;
+  },
+
   renderBoard(){
     const dots = S.diff && S.diff.dots;
-    const cnc = S.subject==='cn' ? ' cn' : '';
+    const cnc = S.subject==='cn' ? ' cn' : (S.subject==='en' ? ' en' : '');
+    const qTag = S.subject==='cn'?'汉字':(S.subject==='en'?'中文':'题目');
+    const aTag = S.subject==='cn'?'拼音':(S.subject==='en'?'English':'答案');
     $('board').innerHTML = S.board.map((t,i)=>{
       if(t.done) return `<div class="tile gone"></div>`;
       if(t.k==='q'){
         return `<button class="tile q${cnc} ${S.sel===i?'sel':''}" data-i="${i}">
-          <span class="tag pix">${S.subject==='cn'?'汉字':'题目'}</span><span class="val">${t.txt}</span></button>`;
+          <span class="tag pix">${qTag}</span><span class="val">${t.txt}</span></button>`;
       }else{
         let dd='';
         if(dots){ let s=''; for(let n=0;n<Math.min(t.ans,20);n++) s+=`<span class="dot"></span>`; dd=`<div class="dots">${s}</div>`; }
         return `<button class="tile a${cnc} ${S.sel===i?'sel':''}" data-i="${i}">
-          <span class="tag pix">${S.subject==='cn'?'拼音':'答案'}</span><span class="val">${t.ans}</span>${dd}</button>`;
+          <span class="tag pix">${aTag}</span><span class="val">${t.ans}</span>${dd}</button>`;
       }
     }).join('');
     $('board').querySelectorAll('.tile[data-i]').forEach(el=>{ el.onclick = ()=>G.tap(parseInt(el.dataset.i)); });
@@ -924,7 +949,8 @@ const G = {
   tap(i){
     if(S.busy) return;
     const t=S.board[i]; if(!t||t.done) return;
-    if(S.sel===null){ S.sel=i; this.renderBoard(); return; }   // 点方块不发声，配对正确后才读音
+    if(S.subject==='en' && t.audio) playEn(t.audio);           // 英语：点任意方块即读英文（边配边磨耳朵）
+    if(S.sel===null){ S.sel=i; this.renderBoard(); return; }   // 拼音：点方块不发声，配对正确后才读音
     if(S.sel===i){ S.sel=null; this.renderBoard(); return; }
     const a=S.board[S.sel], b=t;
     if(a.k===b.k){ S.sel=i; this.renderBoard(); return; }
@@ -941,6 +967,10 @@ const G = {
       playPy(codes);
       const qt=(S.board[i].k==='q'?S.board[i]:S.board[j]).txt; Weak.hit(qt);   // 答对：错题本减权
     }
+    if(S.subject==='en'){
+      const aT=(S.board[i].k==='a'?S.board[i]:S.board[j]);
+      playEn(aT.audio); Weak.hit(aT.ans);                                       // 答对：读英文 + 错题本减权（键=英文词）
+    }
     S.board[i].done=true; S.board[j].done=true; S.sel=null;
     S.combo++;
     const baseStar = S.tool>=1 ? 2 : 1;
@@ -955,6 +985,7 @@ const G = {
 
   fail(i,j){
     if(S.subject==='cn'){ const qt=(S.board[i].k==='q'?S.board[i]:S.board[j]).txt; Weak.miss(qt); }  // 答错：记错题
+    if(S.subject==='en'){ const aT=(S.board[i].k==='a'?S.board[i]:S.board[j]); Weak.miss(aT.ans); }  // 答错：记错题（键=英文词）
     const e1=document.querySelector(`.tile[data-i='${i}']`), e2=document.querySelector(`.tile[data-i='${j}']`);
     [e1,e2].forEach(e=>e&&e.classList.add('wrong'));
     S.busy=true;
@@ -1042,20 +1073,21 @@ const G = {
     const k=['wood','stone','iron','diamond'][Math.min(S.world,4)-1]||'wood';
     const chestAmt = 2 + Math.floor(S.curStage/2);
     S.res[k]+=chestAmt;
-    const tip = S.subject==='cn' ? '下一关字词更多、更难（逐步加入复韵母）' : '下一关数字更大、方块更多';
+    const tip = S.subject==='cn' ? '下一关字词更多、更难（逐步加入复韵母）' : (S.subject==='en' ? '下一关单词更多、范围更广' : '下一关数字更大、方块更多');
     $('winBody').innerHTML = `
       <p style="font-size:15px;margin-bottom:10px">通过 第${S.curStage+1}关！奖励 ⭐ ${bonus} 星</p>
       <p style="font-size:14px;color:var(--gold)">🎁 宝箱：${({wood:'木头',stone:'石头',iron:'铁',diamond:'钻石'})[k]} ×${chestAmt}</p>
       <p class="tip" style="margin-top:12px">总星星 ★ ${S.stars} · 累计通关 ${S.totalCleared} 关<br>⚠️ ${tip}，加油！</p>`;
-    const wh=$('winHomeBtn'); if(wh) wh.textContent = S.subject==='cn'?'🏠 玩法':'地图';
+    const wh=$('winHomeBtn'); if(wh) wh.textContent = S.subject==='math'?'地图':'🏠 玩法';
     this.renderHUD();
     $('winOv').classList.add('on');
   },
   nextLevel(){ this.close('winOv'); toast('🔥 难度提升！');
     if(S.subject==='cn'){ S.matchStage++; PG.startLevel(); }
+    else if(S.subject==='en'){ S.enMatchStage++; EG.startLevel(); }
     else { S.stage[S.world]++; this.startWorld(S.world); } },
-  retry(){ this.close('loseOv'); if(S.subject==='cn') PG.startLevel(); else this.startWorld(S.world); },
-  lose(){ const lh=$('loseHomeBtn'); if(lh) lh.textContent = S.subject==='cn'?'🏠 玩法':'地图'; $('loseOv').classList.add('on'); },
+  retry(){ this.close('loseOv'); if(S.subject==='cn') PG.startLevel(); else if(S.subject==='en') EG.startLevel(); else this.startWorld(S.world); },
+  lose(){ const lh=$('loseHomeBtn'); if(lh) lh.textContent = S.subject==='math'?'地图':'🏠 玩法'; $('loseOv').classList.add('on'); },
 
   /* ---------- CRAFT ---------- */
   openCraft(){ this.renderCraft(); $('craftOv').classList.add('on'); },
@@ -1535,6 +1567,18 @@ function _matchPool(maxWorld){          // 拼音配对统一题库：世界 1..
   const out=[]; PINYIN_WORLDS.forEach(w=>{ if(w.id<=maxWorld) out.push(...w.words); }); return out;
 }
 function _readWords(){ return PINYIN_WORLDS.filter(w=>w.id>=7).flatMap(w=>w.words).filter(h=>PD(h)); }  // 看拼音选词：词语池(世界7-8)
+// ===== 英语数据层：EN_INDEX 查词 → 条目；enGamePool 取题池（默认按世界进度 / 自主命题取录入词）=====
+const EN_INDEX = new Map();
+((window.EN_DATA&&EN_DATA.worlds)||[]).forEach(w=>w.words.forEach(it=>EN_INDEX.set(it.en, it)));
+function _enMaxWorld(stage){ return Math.min(1+stage, (window.EN_DATA&&EN_DATA.worlds.length)||1); }  // 世界 1..(1+关)逐关放开
+function enGamePool(kind, stage){
+  if(S.enQsource && S.enQsource.type!=='default'){
+    return (S.enQsource.items||[]).filter(en=>EN_INDEX.has(en));   // 自主命题：只用录入且已入库的词
+  }
+  const maxW=_enMaxWorld(stage), out=[];
+  ((window.EN_DATA&&EN_DATA.worlds)||[]).forEach(w=>{ if(w.id<=maxW) w.words.forEach(it=>out.push(it.en)); });
+  return out;
+}
 function _wsample(items, weightFn, n){  // 按权重不放回抽 n 个
   const pool=items.slice(), out=[];
   while(out.length<n && pool.length){
@@ -1879,6 +1923,22 @@ const PG = {
     S.hearts=S.maxHearts; S.skillUses={}; S.shield=false;
     SKILLS.forEach(s=>{ if(S.tool>=s.tier) S.skillUses[s.key]=s.uses; });
     G.buildPinyinBoard(S.diff); show('game');
+  },
+};
+
+// 英语词义配对挖矿：复用配对引擎外壳，按世界进度（或自主命题）混合出题
+const EG = {
+  start(){ S.subject='en';
+    if(!enGamePool('match', S.enMatchStage).length){ toast('这个题库还没有可配对的单词'); return G.goModes('en'); }
+    this.startLevel(); },
+  startLevel(){
+    S.subject='en'; S.curStage=S.enMatchStage;
+    S.world=Math.min(1+Math.floor(S.enMatchStage/2),4);   // 发矿「深度」
+    S.diff=diffFor(1, S.enMatchStage);
+    S.maxHearts = S.tool>=2?6:5; if(S.tool>=4) S.maxHearts=7;
+    S.hearts=S.maxHearts; S.skillUses={}; S.shield=false;
+    SKILLS.forEach(s=>{ if(S.tool>=s.tier) S.skillUses[s.key]=s.uses; });
+    G.buildEnglishBoard(S.diff); show('game');
   },
 };
 
