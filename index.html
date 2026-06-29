@@ -1500,7 +1500,7 @@ function renderModes(subj){
   $('modeTitle').textContent = subj==='cn' ? '语文 · 选择玩法' : (subj==='en' ? '英语 · 选择玩法' : '数学 · 选择玩法');
   const src=$('modeSrc'), back=$('modeBack');
   if(subj==='en'){
-    if(back) back.textContent='↩ 学科';
+    if(back) back.textContent='↩ 题库';
     if(src) src.innerHTML = `📚 题库：<b>${(S.enQsource&&S.enQsource.label)||'默认主题'}</b>`
       + ((S.enQsource&&S.enQsource.items&&S.enQsource.items.length) ? `（${S.enQsource.items.length} 词）` : '');
     list.innerHTML = `
