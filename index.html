@@ -708,6 +708,7 @@ function playEn(key){
   a.currentTime=0;
   try{ a.playbackRate = sp.rate; }catch(e){}
   a.play().catch(()=>{});
+  return a;                                                  // 返回音频元素，便于「读完再继续」挂 ended
 }
 function avatarHTML(skinId,small){
   const sk=SKINS[skinId]||SKINS.steve; let cells='';   // 无效皮肤兜底,避免崩溃
@@ -1654,6 +1655,7 @@ function _readWords(){ return PINYIN_WORLDS.filter(w=>w.id>=7).flatMap(w=>w.word
 // ===== 英语数据层：EN_INDEX 查词 → 条目；enGamePool 取题池（默认按世界进度 / 自主命题取录入词）=====
 const EN_INDEX = new Map();
 ((window.EN_DATA&&EN_DATA.worlds)||[]).forEach(w=>w.words.forEach(it=>EN_INDEX.set(it.en, it)));
+((window.EN_DATA&&EN_DATA.phrases)||[]).forEach(p=>EN_INDEX.set(p.en, p));   // 短语并入索引(词义配对/听音用其 zh/audio)
 function _enMaxWorld(stage){ return Math.min(1+stage, (window.EN_DATA&&EN_DATA.worlds.length)||1); }  // 世界 1..(1+关)逐关放开
 function _enKey(t){ return (t||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,''); }
 function enGamePool(kind, stage){
@@ -1662,6 +1664,9 @@ function enGamePool(kind, stage){
   }
   const maxW=_enMaxWorld(stage), out=[];
   ((window.EN_DATA&&EN_DATA.worlds)||[]).forEach(w=>{ if(w.id<=maxW) w.words.forEach(it=>out.push(it.en)); });
+  if(kind==='match'||kind==='listen'){                          // 短语只进「词义配对/听音」，不进看图/拼单词
+    ((window.EN_DATA&&EN_DATA.phrases)||[]).forEach(p=>{ if(p.world<=maxW) out.push(p.en); });
+  }
   return out;
 }
 // 英语单选玩法造候选：target + (n-1) 个同池干扰词，乱序返回。
@@ -1674,7 +1679,7 @@ const EN_SENT_INDEX = new Map();
 ((window.EN_DATA&&EN_DATA.sentences)||[]).forEach(s=>EN_SENT_INDEX.set(s.en, s));
 function enSentencePool(stage){
   const all=(window.EN_DATA&&EN_DATA.sentences)||[];
-  const hi=Math.min(4+Math.floor(stage/2),7), lo=Math.max(3, hi-2);
+  const hi=Math.min(4+Math.floor(stage/2),8), lo=Math.max(3, hi-2);
   let p=all.filter(s=> s.words && s.words.length>=lo && s.words.length<=hi);
   if(p.length<2) p=all.slice();
   return p;
@@ -2041,7 +2046,7 @@ const EPICK = {
     CNQ.cur={target, audio:_enKey(target)};
     cnqHUD();
     $('qPrompt').innerHTML=`<div class="cnqBig">${prompt}</div>`;
-    $('qHint').textContent='看图，选对应的单词';
+    $('qHint').textContent='看图/看中文，选对应的单词';
     $('qBody').className='cnqBody listenGrid';
     $('qBody').innerHTML=choices.map(w=>`<button class="cnqChar en" data-w="${w}"><span class="val">${w}</span></button>`).join('');
     $('qBody').querySelectorAll('.cnqChar').forEach(b=>b.onclick=()=>EPICK.answer(b.dataset.w,b));
@@ -2159,10 +2164,14 @@ const EA = {
     const got=CNQ.slots.map(t=>t.u), want=CNQ.cur.units, c=this.cfg;
     const ok = got.length===want.length && got.every((u,i)=>c.eq(u, want[i]));
     if(ok){
-      CNQ.busy=true; beep('good'); playEn(CNQ.cur.audio); Weak.hit(CNQ.cur.target); cnqGood(); cnqHUD();
+      CNQ.busy=true; beep('good'); Weak.hit(CNQ.cur.target); cnqGood(); cnqHUD();
       $('eaSlots').querySelectorAll('.eaSlot').forEach(b=>b.classList.add('match'));
-      if(CNQ.cleared>=CNQ.goal){ setTimeout(()=>this._win(),950); return; }
-      setTimeout(()=>this._next(),950);
+      const adv=()=>{ if(CNQ.cleared>=CNQ.goal) this._win(); else this._next(); };
+      const a=playEn(CNQ.cur.audio);
+      if(c.waitAudio && a){                                     // 连词成句：读完整句再下一题（挂 ended，4s 兜底防卡）
+        let done=false; const go=()=>{ if(done) return; done=true; try{a.onended=null;}catch(e){} adv(); };
+        a.onended=go; setTimeout(go, 4000);
+      } else { setTimeout(adv, 950); }
     } else {
       Weak.miss(CNQ.cur.target); beep('bad'); CNQ.combo=0; CNQ.hearts--; CNQ.busy=true; cnqHUD();
       $('eaSlots').querySelectorAll('.eaSlot').forEach(b=>b.classList.add('wrong'));
@@ -2204,7 +2213,7 @@ const ESPELL = {
 const ESENT = {
   start(){ EA.run({
     kind:'enSent', title:'🧩 连词成句', stageKey:'enSentStage',
-    hint:'听发音，把单词排成句子', promptIsEmoji:false,
+    hint:'听发音，把单词排成句子', promptIsEmoji:false, waitAudio:true,
     disp:u=>u, eq:(a,b)=>a===b,
     empty:'默认句库还没准备好，换个玩法',
     winHint:'下一关句子更长、干扰更多，加油！',
