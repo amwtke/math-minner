@@ -10,8 +10,9 @@ __pycache__/
 data/*.json
 data/*.tmp
 
-# 发音音频(运行时由服务器拉取,不入库)
-audio/
+# 发音音频(运行时由服务器拉取,不入库；默认英语包 audio/en/ 例外，入库)
+audio/*
+!audio/en/
 
 # 构建期 pypinyin 虚拟环境(仅生成 pinyin-data.js 时用,不入库)
 .venv-tools/

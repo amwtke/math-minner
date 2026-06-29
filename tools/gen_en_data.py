@@ -4,9 +4,14 @@
 import json
 import os
 import re
+import sys
+import time
+import urllib.parse
+import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "en-data.js")
+AUDIO_DIR = os.path.join(HERE, "..", "audio", "en")
 
 
 def audio_key(text):
@@ -59,5 +64,39 @@ def build():
     print(f"已写 {OUT}：{len(WORDS)} 词，{len(worlds)} 世界（{counts}）。")
 
 
+def tts_mp3(text):
+    """英文文本 -> mp3 字节。Google translate_tts 简单 GET（构建期联网一次）。
+    可选升级：改用 edge-tts 神经语音（需 pip install edge-tts）。"""
+    url = "https://translate.google.com/translate_tts?" + urllib.parse.urlencode(
+        {"ie": "UTF-8", "q": text, "tl": "en", "client": "tw-ob"})
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return r.read()
+
+
+def gen_audio():
+    os.makedirs(AUDIO_DIR, exist_ok=True)
+    todo = [(en, audio_key(en)) for (t, en, zh, emoji) in WORDS]
+    done = skip = 0
+    for en, key in todo:
+        path = os.path.join(AUDIO_DIR, key + ".mp3")
+        if os.path.exists(path):
+            skip += 1
+            continue
+        try:
+            data = tts_mp3(en)
+        except Exception as e:                       # 单词失败不致命：跳过，可重跑补齐
+            print(f"  ✗ {en}: {e}")
+            continue
+        with open(path, "wb") as f:
+            f.write(data)
+        done += 1
+        time.sleep(0.4)                              # 礼貌限速，避免被限流
+    print(f"发音包：新增 {done}，跳过 {skip}（已存在），目录 {AUDIO_DIR}")
+
+
 if __name__ == "__main__":
-    build()
+    if len(sys.argv) > 1 and sys.argv[1] == "audio":
+        gen_audio()
+    else:
+        build()
