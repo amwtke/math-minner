@@ -130,6 +130,14 @@
     background:var(--stone);box-shadow:inset 0 -5px 0 rgba(0,0,0,.3);cursor:pointer;}
   .cnqChar .val{font-family:var(--cn);font-size:30px;font-weight:700;color:#fff;}
   .cnqChar.en .val{font-size:22px;letter-spacing:.3px;text-transform:lowercase;}
+  .eaCn{text-align:center;font-family:var(--cn);font-size:22px;font-weight:700;color:var(--gold);margin-bottom:6px;}
+  .eaSlots{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;min-height:46px;margin:10px 0;}
+  .eaSlot{min-width:34px;min-height:44px;padding:4px 9px;border:2px dashed var(--stone-d);border-radius:8px;background:rgba(0,0,0,.25);font-family:var(--cn);font-size:22px;font-weight:700;color:#fff;cursor:pointer;}
+  .eaSlot.filled{border-style:solid;border-color:var(--cyan);background:var(--stone);}
+  .eaSlot.match{border-color:var(--grass);background:var(--grass);}
+  .eaSlot.wrong{border-color:var(--red);animation:shake .3s;}
+  .cnqBody.eaTray{grid-template-columns:repeat(auto-fill,minmax(54px,1fr));}
+  .eaTile{min-height:48px;display:flex;align-items:center;justify-content:center;border:none;border-radius:8px;background:var(--stone);font-family:var(--cn);font-size:22px;font-weight:700;color:#fff;cursor:pointer;}
   .cnqBody.toneRow{grid-template-columns:repeat(4,1fr);}
   .cnqTone{display:flex;flex-direction:column;align-items:center;gap:4px;padding:16px 6px;border:none;border-radius:8px;
     background:var(--dirt);box-shadow:inset 0 -5px 0 rgba(0,0,0,.3);cursor:pointer;}
@@ -2090,6 +2098,78 @@ const ELISTEN = {
   },
   win(){ cnqWin('enListenStage', ()=>ELISTEN.start(), '下一关单词更多、更易混，加油！'); },
   lose(){ cnqLose(()=>ELISTEN.start()); },
+};
+
+// 🧱 EA 有序组装引擎：把打乱的方块(字母/单词)按序点入槽位；配置驱动(拼单词/连词成句共用)。
+const EA = {
+  cfg:null,
+  run(cfg){
+    S.subject='en'; this.cfg=cfg; const stage=S[cfg.stageKey];
+    const first=cfg.pickCur(stage, null);
+    if(!first){ toast(cfg.empty||'这个题库内容不足，换个玩法或题库'); return G.goModes('en'); }
+    CNQ={kind:cfg.kind, hearts:cnqMaxHearts(), maxHearts:cnqMaxHearts(), score:0, cleared:0, combo:0,
+      goal:6+stage, depth:Math.min(1+Math.floor(stage/2),4), busy:false, stage, last:null,
+      cur:null, slots:[], tray:[]};
+    $('qTitle').textContent=`${cfg.title} · 第${stage+1}关`;
+    show('cnq'); this._load(first);
+  },
+  _load(cur){
+    CNQ.busy=false; CNQ.cur=cur; CNQ.slots=[]; CNQ.last=cur.target;
+    CNQ.tray=shuffle(cur.units.concat(cur.decoys||[]).map((u,i)=>({u, id:i})));   // 每方块唯一 id，重复单元可区分
+    cnqHUD();
+    const c=this.cfg;
+    const promptHTML = c.promptIsEmoji ? `<div class="cnqBig">${cur.prompt}</div>` : `<div class="eaCn">${cur.prompt}</div>`;
+    $('qPrompt').innerHTML = promptHTML
+      + `<button class="cnqSpeak" id="qSpeak">🔊 再听一遍</button>`
+      + `<div class="eaSlots" id="eaSlots"></div>`;
+    $('qSpeak').onclick=()=>{ if(CNQ.cur) playEn(CNQ.cur.audio); };
+    $('qHint').textContent=c.hint;
+    this._render();
+    if(c.autoPlay!==false) playEn(cur.audio);
+  },
+  _render(){
+    const units=CNQ.cur.units;
+    $('eaSlots').innerHTML = units.map((_,i)=>{
+      const t=CNQ.slots[i];
+      return `<button class="eaSlot${t?' filled':''}" data-slot="${i}">${t?this.cfg.disp(t.u):'_'}</button>`;
+    }).join('');
+    $('eaSlots').querySelectorAll('.eaSlot').forEach(b=>b.onclick=()=>EA._unplace(+b.dataset.slot));
+    const used=new Set(CNQ.slots.map(t=>t.id));
+    $('qBody').className='cnqBody eaTray';
+    $('qBody').innerHTML = CNQ.tray.map(t=> used.has(t.id)?'' : `<button class="eaTile" data-id="${t.id}">${this.cfg.disp(t.u)}</button>`).join('');
+    $('qBody').querySelectorAll('.eaTile').forEach(b=>b.onclick=()=>EA._place(+b.dataset.id));
+  },
+  _place(id){
+    if(CNQ.busy) return;
+    if(CNQ.slots.length>=CNQ.cur.units.length) return;
+    const tile=CNQ.tray.find(t=>t.id===id); if(!tile || CNQ.slots.some(s=>s.id===id)) return;
+    CNQ.slots.push(tile);
+    this._render();
+    if(CNQ.slots.length===CNQ.cur.units.length) this._check();
+  },
+  _unplace(i){
+    if(CNQ.busy) return;
+    if(i<0 || i>=CNQ.slots.length) return;
+    CNQ.slots.splice(i,1);
+    this._render();
+  },
+  _check(){
+    const got=CNQ.slots.map(t=>t.u), want=CNQ.cur.units, c=this.cfg;
+    const ok = got.length===want.length && got.every((u,i)=>c.eq(u, want[i]));
+    if(ok){
+      CNQ.busy=true; beep('good'); playEn(CNQ.cur.audio); Weak.hit(CNQ.cur.target); cnqGood(); cnqHUD();
+      $('eaSlots').querySelectorAll('.eaSlot').forEach(b=>b.classList.add('match'));
+      if(CNQ.cleared>=CNQ.goal){ setTimeout(()=>this._win(),950); return; }
+      setTimeout(()=>this._next(),950);
+    } else {
+      Weak.miss(CNQ.cur.target); beep('bad'); CNQ.combo=0; CNQ.hearts--; CNQ.busy=true; cnqHUD();
+      $('eaSlots').querySelectorAll('.eaSlot').forEach(b=>b.classList.add('wrong'));
+      setTimeout(()=>{ CNQ.slots=[]; CNQ.busy=false; if(CNQ.hearts<=0) this._lose(); else this._render(); },650);
+    }
+  },
+  _next(){ const cur=this.cfg.pickCur(CNQ.stage, CNQ.last); if(!cur){ return this._win(); } this._load(cur); },
+  _win(){ cnqWin(this.cfg.stageKey, ()=>EA.run(EA.cfg), this.cfg.winHint||'下一关更长、更多干扰，加油！'); },
+  _lose(){ cnqLose(()=>EA.run(EA.cfg)); },
 };
 
 // 拼音配对挖矿：8 个世界合并为一条进度，每关从课本进度内混合出题（单/复韵母同关）
