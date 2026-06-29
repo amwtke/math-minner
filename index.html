@@ -551,6 +551,10 @@ const WORLDS = [
   {id:4,name:'钻石层 DIAMOND',icon:'var(--cyan)',desc:'两位数加减混合',op:'mix',min:10,max:30,step:12,cap:99,pairs:6},
 ];
 function diffFor(world, stage){
+  if(S.subject==='en'){                                       // 英语配对：4→8 对随关卡上升
+    const pairs = Math.min(4 + Math.floor(stage/2), 8);
+    return {pairs, dots:false, en:true, dl:Math.min(4,Math.floor(stage/2))};
+  }
   const cn = S.subject==='cn';
   const list = cn ? PINYIN_WORLDS : WORLDS;
   const w = list[world-1];
@@ -599,6 +603,7 @@ function freshState(){
     subject:'math', voiceSpeed:2, misses:{},
     qsource:{type:'default',label:'默认游戏',items:null},
     matchStage:0, listenStage:0, toneStage:0, spellStage:0, readStage:0,
+    enMatchStage:0, enQsource:{type:'default',label:'默认主题',items:null},
     pyMatchStage:pyStageDefaults() };
 }
 
@@ -665,7 +670,7 @@ function avatarHTML(skinId,small){
 
 /* ===================== 多人登录 ===================== */
 const USER_KEY='mathminer_user';
-const SAVE_FIELDS=['res','tool','skinsOwned','skin','stage','crushStage','stars','totalCleared','pyMatchStage','voiceSpeed','matchStage','listenStage','toneStage','spellStage','readStage','misses','qsource'];
+const SAVE_FIELDS=['res','tool','skinsOwned','skin','stage','crushStage','stars','totalCleared','pyMatchStage','voiceSpeed','matchStage','listenStage','toneStage','spellStage','readStage','misses','qsource','enMatchStage','enQsource'];
 function escapeHTML(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 const Auth = {
@@ -729,6 +734,9 @@ function applySave(d){
   if(!S.misses || typeof S.misses!=='object') S.misses={};   // 错题本
   if(!S.qsource || typeof S.qsource!=='object' || !S.qsource.type)
     S.qsource={type:'default',label:'默认游戏',items:null};   // 选题：默认/自主命题
+  if(typeof S.enMatchStage!=='number') S.enMatchStage=0;       // 英语配对关卡
+  if(!S.enQsource || typeof S.enQsource!=='object' || !S.enQsource.type)
+    S.enQsource={type:'default',label:'默认主题',items:null};  // 英语题库：默认/自主命题
   if(!SKINS[S.skin]) S.skin='steve';
 }
 let _saveInflight=false, _saveDirty=false;
