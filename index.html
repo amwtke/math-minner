@@ -347,6 +347,38 @@
     </div>
   </section>
 
+  <!-- 英语题库：默认主题 / 自主命题 -->
+  <section id="enQsrc" class="screen">
+    <div class="userBar"><span></span>
+      <button class="btn gray" style="font-size:11px;padding:6px 10px" onclick="G.goSubjects()">↩ 学科</button></div>
+    <div class="logo pix" style="font-size:20px">选择题库</div>
+    <div style="display:grid;gap:14px;margin-top:22px">
+      <div class="world" style="background:linear-gradient(135deg,var(--gold),rgba(0,0,0,.25))" onclick="G.enPickDefault()">
+        <div class="wicon" style="background:var(--gold)"></div>
+        <div><h3>📚 默认主题</h3><p>颜色·动物·食物… 由易到难</p></div>
+      </div>
+      <div class="world" style="background:linear-gradient(135deg,var(--cyan),rgba(0,0,0,.25))" onclick="G.openEnCustom()">
+        <div class="wicon" style="background:var(--cyan)"></div>
+        <div><h3>✏️ 自主命题</h3><p>自己录想练的单词，只练这些</p></div>
+      </div>
+    </div>
+    <p class="tip" id="enQsrcTip" style="margin-top:20px">选好题库，再进玩法</p>
+  </section>
+
+  <!-- 英语自主命题：录入单词 -->
+  <section id="enCustom" class="screen">
+    <div class="userBar"><span></span>
+      <button class="btn gray" style="font-size:11px;padding:6px 10px" onclick="G.goEnQsrc()">↩ 题库</button></div>
+    <div class="logo pix" style="font-size:18px">✏️ 自主命题（英语）</div>
+    <p class="tip" style="margin-top:10px">输入想练的单词，用空格或换行隔开。<br>例：apple cat red dog book</p>
+    <textarea id="enCustomInput" class="nameInput" style="width:100%;height:120px;margin-top:10px;resize:none;font-size:18px;line-height:1.7"
+      oninput="G.enCustomPreview()" placeholder="type words here…"></textarea>
+    <p class="tip" id="enCustomHint" style="margin-top:8px">已识别 0 个</p>
+    <div class="closeRow" style="margin-top:8px">
+      <button class="btn green" id="enCustomStartBtn" onclick="G.enCustomStart()" disabled>开始练习 ▶</button>
+    </div>
+  </section>
+
 <style>
   .tile.en .val{font-family:var(--cn);font-weight:700;font-size:20px;letter-spacing:.4px;text-transform:lowercase;line-height:1.15;}
   .tile.en.q .val{font-family:var(--cn);}   /* 中文题面也用清晰中文体 */
@@ -879,7 +911,7 @@ const G = {
     const stage=S.enMatchStage;
     const pool=enGamePool('match', stage);
     const chosen=Weak.choose(pool, d.pairs);            // 含「针对错题多出相似题」
-    const pairs=chosen.map(en=>{ const it=EN_INDEX.get(en)||{en,zh:en,audio:''};
+    const pairs=chosen.map(en=>{ const it=EN_INDEX.get(en)||{en, zh:en, audio:_enKey(en)};
       return {zh:it.zh, en:it.en, audio:it.audio}; });
     let tiles=[];
     pairs.forEach((p,i)=>{
@@ -1402,7 +1434,7 @@ G.customStart = function(){
   const items=(G._customItems||[]).slice(); if(!items.length) return;
   S.qsource={type:'custom', label:'自主命题', items}; saveGame(); G.goModes('cn');
 };
-G.modesBack = function(){ if(S.subject==='cn') G.goQsrc(); else G.goSubjects(); };   // 英语本期直接回学科；Task 8 接题库屏后改为 G.goEnQsrc()
+G.modesBack = function(){ if(S.subject==='cn') G.goQsrc(); else if(S.subject==='en') G.goEnQsrc(); else G.goSubjects(); };
 const Audio2 = {
   ready:false,
   async ensure(){           // 返回 true=可继续进语文
@@ -1435,11 +1467,32 @@ G.enterCn = async function(){
   const ok = await Audio2.gate();
   if(ok) G.goQsrc();          // 进语文先选题库；失败时停在 #audioFetch，由用户选重试/跳过
 };
-// 英语默认发音包随仓库提供（已离线），无需下载门；本期直接进默认题库玩法屏。
-G.enterEn = function(){
-  _unlockAudio();
-  S.subject='en';
-  S.enQsource={type:'default',label:'默认主题',items:null};
+// 英语默认发音包随仓库提供（已离线），无需下载门；进英语先选题库。
+G.enterEn = function(){ _unlockAudio(); S.subject='en'; G.goEnQsrc(); };
+G.goEnQsrc = function(){ S.subject='en';
+  const t=$('enQsrcTip'); if(t) t.textContent = (S.enQsource&&S.enQsource.type!=='default')
+    ? `当前题库：${S.enQsource.label}（${(S.enQsource.items||[]).length} 词）· 选「默认主题」可换回`
+    : '选好题库，再进玩法';
+  show('enQsrc'); };
+G.enPickDefault = function(){ S.enQsource={type:'default',label:'默认主题',items:null}; saveGame(); G.goModes('en'); };
+G.openEnCustom = function(){ const ta=$('enCustomInput');
+  if(S.enQsource && S.enQsource.type==='custom' && (S.enQsource.items||[]).length) ta.value=S.enQsource.items.join(' ');
+  G.enCustomPreview(); show('enCustom'); ta.focus(); };
+G.enCustomPreview = function(){
+  const toks=(($('enCustomInput').value||'').toLowerCase().split(/[^a-z']+/)).map(t=>t.trim()).filter(Boolean);
+  const seen=new Set(), ok=[], unknown=[];
+  toks.forEach(t=>{ if(seen.has(t)) return; seen.add(t);
+    (EN_INDEX.has(t)?ok:unknown).push(t); });
+  G._enCustomItems = ok.concat(unknown);   // 已入库优先；未入库也收（发音将现生成）
+  $('enCustomHint').innerHTML = `已识别 <b style="color:var(--grass)">${ok.length}</b> 个`
+    + (unknown.length ? ` · <span style="color:var(--gold)">${unknown.length} 个新词（发音现生成）</span>` : '');
+  $('enCustomStartBtn').disabled = G._enCustomItems.length===0;
+};
+G.enCustomStart = async function(){
+  const items=(G._enCustomItems||[]).slice(); if(!items.length) return;
+  S.enQsource={type:'custom', label:'自主命题', items}; saveGame();
+  try{ await fetch('/api/en/tts',{method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({texts:items})}); }catch(e){}   // 失败不阻断：缺音静默降级
   G.goModes('en');
 };
 function renderModes(subj){
@@ -1571,9 +1624,10 @@ function _readWords(){ return PINYIN_WORLDS.filter(w=>w.id>=7).flatMap(w=>w.word
 const EN_INDEX = new Map();
 ((window.EN_DATA&&EN_DATA.worlds)||[]).forEach(w=>w.words.forEach(it=>EN_INDEX.set(it.en, it)));
 function _enMaxWorld(stage){ return Math.min(1+stage, (window.EN_DATA&&EN_DATA.worlds.length)||1); }  // 世界 1..(1+关)逐关放开
+function _enKey(t){ return (t||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,''); }
 function enGamePool(kind, stage){
   if(S.enQsource && S.enQsource.type!=='default'){
-    return (S.enQsource.items||[]).filter(en=>EN_INDEX.has(en));   // 自主命题：只用录入且已入库的词
+    return (S.enQsource.items||[]).filter(Boolean);               // 自主命题：录入词全用（新词发音现生成）
   }
   const maxW=_enMaxWorld(stage), out=[];
   ((window.EN_DATA&&EN_DATA.worlds)||[]).forEach(w=>{ if(w.id<=maxW) w.words.forEach(it=>out.push(it.en)); });
