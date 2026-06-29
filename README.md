@@ -87,6 +87,7 @@
 
     python3 test_server.py                           # 服务器单元/集成测试(标准库 unittest)
     cd tools && python3 -m unittest test_gen_data -v # 拼音数据生成测试
+    cd tools && python3 -m unittest test_gen_en_data -v # 英语数据生成测试
 
 ## 离线说明
 

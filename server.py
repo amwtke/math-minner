@@ -207,6 +207,8 @@ class Handler(BaseHTTPRequestHandler):
                 data = _en_tts_mp3(t)
             except Exception:                      # 离线/失败：跳过该词，前端静音降级，不阻断
                 continue
+            if not data:                           # 空响应：跳过，避免写入 0 字节文件永久缓存
+                continue
             with open(path, "wb") as f:
                 f.write(data)
             made += 1

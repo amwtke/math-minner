@@ -1488,11 +1488,13 @@ G.enCustomPreview = function(){
     + (unknown.length ? ` · <span style="color:var(--gold)">${unknown.length} 个新词（发音现生成）</span>` : '');
   $('enCustomStartBtn').disabled = G._enCustomItems.length===0;
 };
-G.enCustomStart = async function(){
+G.enCustomStart = function(){
   const items=(G._enCustomItems||[]).slice(); if(!items.length) return;
   S.enQsource={type:'custom', label:'自主命题', items}; saveGame();
-  try{ await fetch('/api/en/tts',{method:'POST',headers:{'Content-Type':'application/json'},
-       body:JSON.stringify({texts:items})}); }catch(e){}   // 失败不阻断：缺音静默降级
+  // 后台预生成发音：不阻塞进入游戏；尚未生成好的词先静音，文件落地后 playEn 即有声
+  fetch('/api/en/tts',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({texts:items})}).catch(()=>{});
+  toast('正在准备发音，先开练吧~');
   G.goModes('en');
 };
 function renderModes(subj){

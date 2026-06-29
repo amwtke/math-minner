@@ -88,6 +88,7 @@ def gen_audio():
         except Exception as e:                       # 单词失败不致命：跳过，可重跑补齐
             print(f"  ✗ {en}: {e}")
             continue
+        if not data: print(f"  ✗ {en}: empty"); continue
         with open(path, "wb") as f:
             f.write(data)
         done += 1
