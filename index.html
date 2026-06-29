@@ -2172,6 +2172,31 @@ const EA = {
   _lose(){ cnqLose(()=>EA.run(EA.cfg)); },
 };
 
+// 🔤 拼单词（听写式）：听发音 + 看 emoji，把字母按序拼出。
+const ESPELL = {
+  start(){ EA.run({
+    kind:'enSpell', title:'🔤 拼单词', stageKey:'enSpellStage',
+    hint:'听发音，把字母按顺序拼出来', promptIsEmoji:true,
+    disp:u=>u, eq:(a,b)=>a===b,
+    empty:'这个题库能「拼单词」的单词不足，换个玩法或题库',
+    winHint:'下一关单词更长、干扰更多，加油！',
+    pickCur:(s,last)=>ESPELL.pick(s,last),
+  }); },
+  pick(s, last){
+    const pool=enSpellPool(s); if(!pool.length) return null;
+    const word=Weak.pick(pool, last);
+    const it=EN_INDEX.get(word)||{};
+    const units=Array.from(word.toLowerCase());
+    const decoys=ESPELL.decoyLetters(units, Math.min(Math.floor(s/2),4));
+    return {target:word, units, decoys, audio:_enKey(word), prompt: it.emoji || it.zh || word};
+  },
+  decoyLetters(units, n){
+    const az='abcdefghijklmnopqrstuvwxyz'.split('');
+    const out=[]; for(let i=0;i<n;i++) out.push(az[Math.floor(Math.random()*26)]);
+    return out;
+  },
+};
+
 // 拼音配对挖矿：8 个世界合并为一条进度，每关从课本进度内混合出题（单/复韵母同关）
 const PG = {
   start(){ S.subject='cn';
