@@ -1986,8 +1986,8 @@ const READ = {                                  // 🔎 看拼音选词：读拼
 const EPICK = {
   start(){
     S.subject='en'; const stage=S.enPickStage;
-    const pool=enGamePool('pick', stage);
-    if(pool.length<2){ toast('这个题库能「看图选词」的单词不足，换个玩法或题库'); return G.goModes('en'); }
+    const pool=enGamePool('pick', stage).filter(w=>{ const it=EN_INDEX.get(w); return it && (it.emoji||it.zh); });  // 看图选词需有图/中文：纯英文自定义词库自动跳过
+    if(pool.length<2){ toast('这个题库能「看图选词」的单词不足（需有图/中文），换个玩法或题库'); return G.goModes('en'); }
     CNQ={kind:'enPick', hearts:cnqMaxHearts(), maxHearts:cnqMaxHearts(), score:0, cleared:0, combo:0,
       goal:6+stage, n:Math.min(4,pool.length), depth:Math.min(1+Math.floor(stage/2),4),
       busy:false, pool, last:null, cur:null};
