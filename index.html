@@ -2167,11 +2167,11 @@ const EA = {
       CNQ.busy=true; beep('good'); Weak.hit(CNQ.cur.target); cnqGood(); cnqHUD();
       $('eaSlots').querySelectorAll('.eaSlot').forEach(b=>b.classList.add('match'));
       const sp=$('qSpeak'); if(sp&&c.speakAfterWin) sp.style.display='';   // 答对后才显示「再听一遍」
-      const adv=()=>{ if(CNQ.cleared>=CNQ.goal) this._win(); else this._next(); };
+      const adv=()=>{ if(!$('cnq').classList.contains('on')) return; if(CNQ.cleared>=CNQ.goal) this._win(); else this._next(); };  // 已离开本屏(回首页)则不推进，避免过场误判过关/发奖
       const a=playEn(CNQ.cur.audio);
-      if(c.waitAudio && a){                                     // 连词成句：读完整句再下一题（ended/缺音 error 即进，4s 兜底防卡）
-        let done=false; const go=()=>{ if(done) return; done=true; try{a.onended=null;a.onerror=null;}catch(e){} adv(); };
-        a.onended=go; a.onerror=go; setTimeout(go, 4000);
+      if(c.waitAudio && a){                                     // 连词成句：读完整句再下一题（ended/缺音 error 即进，6s 兜底；推进前停音防漏到下题）
+        let done=false, t=0; const go=()=>{ if(done) return; done=true; clearTimeout(t); try{a.onended=null;a.onerror=null;a.pause();}catch(e){} adv(); };
+        a.onended=go; a.onerror=go; t=setTimeout(go, 6000);
       } else { setTimeout(adv, 950); }
     } else {
       Weak.miss(CNQ.cur.target); beep('bad'); CNQ.combo=0; CNQ.hearts--; CNQ.busy=true; cnqHUD();
