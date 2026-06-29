@@ -2127,7 +2127,7 @@ const EA = {
     const c=this.cfg;
     const promptHTML = c.promptIsEmoji ? `<div class="cnqBig">${cur.prompt}</div>` : `<div class="eaCn">${cur.prompt}</div>`;
     $('qPrompt').innerHTML = promptHTML
-      + `<button class="cnqSpeak" id="qSpeak">🔊 再听一遍</button>`
+      + `<button class="cnqSpeak" id="qSpeak"${c.speakAfterWin?' style="display:none"':''}>🔊 再听一遍</button>`   // speakAfterWin:答题前不给听（看中文排句），答对才显示
       + `<div class="eaSlots" id="eaSlots"></div>`;
     $('qSpeak').onclick=()=>{ if(CNQ.cur) playEn(CNQ.cur.audio); };
     $('qHint').textContent=c.hint;
@@ -2166,11 +2166,12 @@ const EA = {
     if(ok){
       CNQ.busy=true; beep('good'); Weak.hit(CNQ.cur.target); cnqGood(); cnqHUD();
       $('eaSlots').querySelectorAll('.eaSlot').forEach(b=>b.classList.add('match'));
+      const sp=$('qSpeak'); if(sp&&c.speakAfterWin) sp.style.display='';   // 答对后才显示「再听一遍」
       const adv=()=>{ if(CNQ.cleared>=CNQ.goal) this._win(); else this._next(); };
       const a=playEn(CNQ.cur.audio);
-      if(c.waitAudio && a){                                     // 连词成句：读完整句再下一题（挂 ended，4s 兜底防卡）
-        let done=false; const go=()=>{ if(done) return; done=true; try{a.onended=null;}catch(e){} adv(); };
-        a.onended=go; setTimeout(go, 4000);
+      if(c.waitAudio && a){                                     // 连词成句：读完整句再下一题（ended/缺音 error 即进，4s 兜底防卡）
+        let done=false; const go=()=>{ if(done) return; done=true; try{a.onended=null;a.onerror=null;}catch(e){} adv(); };
+        a.onended=go; a.onerror=go; setTimeout(go, 4000);
       } else { setTimeout(adv, 950); }
     } else {
       Weak.miss(CNQ.cur.target); beep('bad'); CNQ.combo=0; CNQ.hearts--; CNQ.busy=true; cnqHUD();
@@ -2213,7 +2214,7 @@ const ESPELL = {
 const ESENT = {
   start(){ EA.run({
     kind:'enSent', title:'🧩 连词成句', stageKey:'enSentStage',
-    hint:'听发音，把单词排成句子', promptIsEmoji:false, waitAudio:true,
+    hint:'看中文，把单词排成句子', promptIsEmoji:false, waitAudio:true, autoPlay:false, speakAfterWin:true,
     disp:u=>u, eq:(a,b)=>a===b,
     empty:'默认句库还没准备好，换个玩法',
     winHint:'下一关句子更长、干扰更多，加油！',
