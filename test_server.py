@@ -65,6 +65,14 @@ class NameValidationTests(unittest.TestCase):
         self.assertFalse(server.valid_name(123))
 
 
+class EnAudioKeyTest(unittest.TestCase):
+    def test_key_matches_frontend_rule(self):
+        self.assertEqual(server.en_audio_key("Apple"), "apple")
+        self.assertEqual(server.en_audio_key("ice cream"), "ice_cream")
+        self.assertEqual(server.en_audio_key("I like apples."), "i_like_apples")
+        self.assertEqual(server.en_audio_key("  red  "), "red")
+
+
 class ServerHTTPTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -261,6 +269,30 @@ class ServerHTTPTests(unittest.TestCase):
         j = json.loads(data)
         self.assertFalse(j["ready"])
         self.assertEqual(j["have"], 0)
+
+    def test_en_tts_existing_word_skips_network(self):
+        en_dir = self.srv.en_audio_dir
+        os.makedirs(en_dir, exist_ok=True)
+        with open(os.path.join(en_dir, "apple.mp3"), "wb") as f:
+            f.write(b"ID3fake")
+        status, data = _post(self.port, "/api/en/tts", {"texts": ["apple"]})
+        self.assertEqual(status, 200)
+        j = json.loads(data)
+        self.assertTrue(j["ok"])
+        self.assertEqual(j["made"], 0)          # 已存在→跳过→不联网
+        self.assertGreaterEqual(j["have"], 1)
+
+    def test_en_tts_new_word_generates_via_mocked_tts(self):
+        original = server._en_tts_mp3
+        server._en_tts_mp3 = lambda text, timeout=20: b"ID3fake"   # 避免真实联网
+        try:
+            status, data = _post(self.port, "/api/en/tts", {"texts": ["zzqnew"]})
+            self.assertEqual(status, 200)
+            j = json.loads(data)
+            self.assertEqual(j["made"], 1)
+            self.assertTrue(os.path.exists(os.path.join(self.srv.en_audio_dir, "zzqnew.mp3")))
+        finally:
+            server._en_tts_mp3 = original
 
     def test_audio_fetch_empty_zip_returns_502_and_no_sentinel(self):
         """当 zip 内无 mp3 时，应返回 502，且不写 .ready 哨兵。"""

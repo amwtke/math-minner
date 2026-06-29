@@ -13,6 +13,7 @@
 import io
 import json
 import os
+import re
 import socket
 import sys
 import threading
@@ -82,6 +83,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._post_save(parsed)
         if path == "/api/audio/fetch":
             return self._audio_fetch()
+        if path == "/api/en/tts":
+            return self._en_tts()
         return self._send_json(404, {"ok": False, "error": "not found"})
 
     # —— API 处理 ————————————————————————————————————————————
@@ -178,6 +181,38 @@ class Handler(BaseHTTPRequestHandler):
             with open(self.server.ready_sentinel, "w") as f:
                 f.write("ok")
             return self._send_json(200, {"ok": True, "have": n})
+
+    def _en_tts(self):
+        try:
+            body = self._read_body()
+        except BodyTooLarge:
+            return self._send_json(413, {"ok": False, "error": "请求体过大"})
+        except ValueError:
+            return self._send_json(400, {"ok": False, "error": "bad json"})
+        texts = body.get("texts") if isinstance(body, dict) else None
+        if not isinstance(texts, list):
+            return self._send_json(400, {"ok": False, "error": "texts must be a list"})
+        os.makedirs(self.server.en_audio_dir, exist_ok=True)
+        made = 0
+        for t in texts:
+            if not isinstance(t, str) or not t.strip():
+                continue
+            key = en_audio_key(t)
+            if not key:
+                continue
+            path = os.path.join(self.server.en_audio_dir, key + ".mp3")
+            if os.path.exists(path):
+                continue
+            try:
+                data = _en_tts_mp3(t)
+            except Exception:                      # 离线/失败：跳过该词，前端静音降级，不阻断
+                continue
+            with open(path, "wb") as f:
+                f.write(data)
+            made += 1
+        have = sum(1 for f in os.listdir(self.server.en_audio_dir)
+                   if f.endswith(".mp3")) if os.path.isdir(self.server.en_audio_dir) else 0
+        return self._send_json(200, {"ok": True, "made": made, "have": have})
 
     # —— 存储工具 ————————————————————————————————————————————
     def _lock_for(self, name):
@@ -294,6 +329,21 @@ def _download_zip(url, timeout=300):   # socket 超时:容忍慢速/偶发卡顿
         return r.read()
 
 
+def en_audio_key(text):
+    """英文词/句 -> 发音文件名（与前端 playEn、tools/gen_en_data.audio_key 逐字一致）。"""
+    return re.sub(r"[^a-z0-9]+", "_", text.strip().lower()).strip("_")
+
+
+def _en_tts_mp3(text, timeout=20):
+    """英文文本 -> mp3 字节，经 Google translate_tts 简单 GET（标准库 urllib）。"""
+    import urllib.parse
+    url = "https://translate.google.com/translate_tts?" + urllib.parse.urlencode(
+        {"ie": "UTF-8", "q": text, "tl": "en", "client": "tw-ob"})
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read()
+
+
 def _content_type(path):
     for ext, ctype in (
         (".html", "text/html; charset=utf-8"),
@@ -325,6 +375,7 @@ def make_server(host, port, data_dir, web_dir):
     srv.locks = {}
     srv.locks_guard = threading.Lock()
     srv.audio_dir = os.path.join(srv.web_dir, "audio", "pinyin")
+    srv.en_audio_dir = os.path.join(srv.web_dir, "audio", "en")
     srv.ready_sentinel = os.path.join(srv.web_dir, "audio", ".ready")
     srv.audio_lock = threading.Lock()
     return srv
