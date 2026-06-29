@@ -2164,7 +2164,7 @@ const EA = {
     } else {
       Weak.miss(CNQ.cur.target); beep('bad'); CNQ.combo=0; CNQ.hearts--; CNQ.busy=true; cnqHUD();
       $('eaSlots').querySelectorAll('.eaSlot').forEach(b=>b.classList.add('wrong'));
-      setTimeout(()=>{ CNQ.slots=[]; CNQ.busy=false; if(CNQ.hearts<=0) this._lose(); else this._render(); },650);
+      setTimeout(()=>{ CNQ.slots=[]; if(CNQ.hearts<=0){ this._lose(); } else { CNQ.busy=false; this._render(); } },650);  // 心为0：busy 保持 true 到 lose，避免过场期托盘误触改写状态
     }
   },
   _next(){ const cur=this.cfg.pickCur(CNQ.stage, CNQ.last); if(!cur){ return this._win(); } this._load(cur); },
