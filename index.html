@@ -2191,9 +2191,10 @@ const ESPELL = {
     return {target:word, units, decoys, audio:_enKey(word), prompt: it.emoji || it.zh || word};
   },
   decoyLetters(units, n){
-    const az='abcdefghijklmnopqrstuvwxyz'.split('');
-    const out=[]; for(let i=0;i<n;i++) out.push(az[Math.floor(Math.random()*26)]);
-    return out;
+    if(n<=0) return [];
+    const have=new Set(units);                                   // 干扰字母不与本词字母重复(听写更公平)、彼此也不重复
+    const az='abcdefghijklmnopqrstuvwxyz'.split('').filter(c=>!have.has(c));
+    return shuffle(az).slice(0, n);
   },
 };
 
