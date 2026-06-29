@@ -2035,7 +2035,9 @@ const EPICK = {
     const target=Weak.pick(CNQ.pool, CNQ.last); CNQ.last=target;
     const it=EN_INDEX.get(target)||{};
     const prompt=it.emoji || it.zh || target;            // 有图用图；无图退中文；再无退英文本身
-    const choices=_enChoices(target, CNQ.pool, CNQ.n);
+    // 看图只凭 emoji 出题：剔除与目标同 emoji 的干扰词，免两词都成正确项
+    const pool=it.emoji ? CNQ.pool.filter(w=> w===target || (EN_INDEX.get(w)||{}).emoji!==it.emoji) : CNQ.pool;
+    const choices=_enChoices(target, pool, CNQ.n);
     CNQ.cur={target, audio:_enKey(target)};
     cnqHUD();
     $('qPrompt').innerHTML=`<div class="cnqBig">${prompt}</div>`;
