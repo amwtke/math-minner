@@ -2198,6 +2198,30 @@ const ESPELL = {
   },
 };
 
+// 🧩 连词成句：看中文 + 听发音整句，把单词按序排成句子。
+const ESENT = {
+  start(){ EA.run({
+    kind:'enSent', title:'🧩 连词成句', stageKey:'enSentStage',
+    hint:'听发音，把单词排成句子', promptIsEmoji:false,
+    disp:u=>u, eq:(a,b)=>a===b,
+    empty:'默认句库还没准备好，换个玩法',
+    winHint:'下一关句子更长、干扰更多，加油！',
+    pickCur:(s,last)=>ESENT.pick(s,last),
+  }); },
+  pick(s, last){
+    const pool=enSentencePool(s); if(!pool.length) return null;
+    let obj=pool[Math.floor(Math.random()*pool.length)];
+    if(pool.length>1){ let guard=0; while(obj.en===last && guard++<8) obj=pool[Math.floor(Math.random()*pool.length)]; }
+    const decoys=ESENT.decoyWords(obj.words, Math.min(Math.floor(s/2),2));
+    return {target:obj.en, units:obj.words.slice(), decoys, audio:obj.audio||_enKey(obj.en), prompt:obj.zh};
+  },
+  decoyWords(words, n){
+    if(n<=0) return [];
+    const all=[]; ((window.EN_DATA&&EN_DATA.sentences)||[]).forEach(s=>s.words.forEach(w=>{ if(!words.includes(w)&&!all.includes(w)) all.push(w); }));
+    return shuffle(all).slice(0,n);
+  },
+};
+
 // 拼音配对挖矿：8 个世界合并为一条进度，每关从课本进度内混合出题（单/复韵母同关）
 const PG = {
   start(){ S.subject='cn';
